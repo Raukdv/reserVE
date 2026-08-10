@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "db:types": "supabase gen types typescript --linked > src/types/database.ts",
     "db:check": "node scripts/db-check.mjs",
-    "rate:fetch": "node scripts/fetch-bcv-rate.mjs"
+    "rate:fetch": "node scripts/fetch-bcv-rate.mjs",
+    "stripe:test": "node scripts/test-stripe.mjs",
+    "stripe:reconcile": "node scripts/reconcile-stripe.mjs",
+    "env:check": "node scripts/check-env.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -23,6 +26,7 @@
     "react-dom": "^19.0.0",
     "resend": "^4.0.1",
     "server-only": "^0.0.1",
+    "stripe": "^22.4.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

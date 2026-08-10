@@ -20,6 +20,11 @@ const serverSchema = z.object({
   BUSINESS_TIMEZONE: z.string().default('America/Caracas'),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
+
+  // Opcionales: sin ellas la pasarela aparece como «faltan credenciales» en
+  // ajustes y el resto de la app funciona igual. Ver src/lib/payment-providers.ts.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 })
 
 type ServerEnv = z.infer<typeof serverSchema>

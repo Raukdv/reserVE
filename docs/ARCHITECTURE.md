@@ -130,13 +130,19 @@ Este camino no desaparece cuando se integre C2P. Siempre habrá quien pague por 
 
 ### 5. Los pagos automáticos se integran detrás de una interfaz
 
-`PaymentProvider` es la abstracción. La implementación de fase 1 es `ManualProvider`.
-Cuando exista RIF jurídico y contrato bancario, se añaden `MercantilC2PProvider` o
-`MegasoftProvider` sin tocar el dominio de reservas.
+El registro vive en `src/lib/payment-providers.ts` y se muestra en `/admin/ajustes` con
+el estado de cada uno y qué le falta. Hoy solo `manual` está operativo; el resto declara
+sus requisitos en lugar de existir a medias en el código.
 
-Contexto de por qué importa: **Stripe no soporta entidades venezolanas** — Venezuela no
-está entre sus países habilitados. El cobro internacional se resuelve más adelante con
-dLocal Go o Binance Pay, o con un Merchant of Record.
+**Stripe** es el siguiente candidato porque su modo de prueba funciona sin verificación
+de negocio ni país: la integración se escribe y se valida entera antes de tener entidad
+legal. Lo que Venezuela impide es **activar cobros reales**, no desarrollar contra la
+API. Queda supeditado a una entidad en un país soportado o a un intermediario que
+facture.
+
+**C2P y las tarjetas nacionales** dependen de persona jurídica con RIF y contrato
+bancario. Sin eso no hay credenciales que pedir, así que no se escribe código
+especulativo: solo queda declarado qué haría falta.
 
 ### 6. El precio siempre se calcula en el servidor
 

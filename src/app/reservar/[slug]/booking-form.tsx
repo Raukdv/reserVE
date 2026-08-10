@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { createBooking, type BookingState } from './actions'
+import { DocumentInput } from '@/components/document-input'
 
 const field =
   'w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-ink/40'
@@ -51,10 +52,7 @@ export function BookingForm({
           <input name="phone" type="tel" autoComplete="tel" className={field} />
         </label>
 
-        <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">Cédula o pasaporte</span>
-          <input name="document" className={field} placeholder="V-12345678" />
-        </label>
+        <DocumentInput name="document" label="Cédula o pasaporte" />
 
         <label className="block sm:col-span-2">
           <span className="mb-1 block text-sm text-ink/60">

@@ -5,7 +5,7 @@
 //   npm run rate:fetch -- --url=https://reserve.lngeneralservices.com --force
 //
 // Es un disparador, no una implementación: la lógica vive en src/lib/bcv.ts y
-// la ejecuta /api/cron/bcv-rate. Así lo que se prueba en local es exactamente
+// la ejecuta /api/cron/daily. Así lo que se prueba en local es exactamente
 // el mismo código que corre el cron de Vercel, sin una segunda versión que se
 // desincronice.
 //
@@ -28,7 +28,7 @@ if (!secret) {
   process.exit(1)
 }
 
-const url = `${base.replace(/\/$/, '')}/api/cron/bcv-rate${force ? '?force=1' : ''}`
+const url = `${base.replace(/\/$/, '')}/api/cron/daily${force ? '?force=1' : ''}`
 
 let res
 try {
@@ -55,12 +55,21 @@ if (!body) {
   process.exit(1)
 }
 
-if (body.ok) {
+const rate = body.rate ?? body
+
+if (rate.ok) {
   console.log(
-    `${body.rateDate} → ${body.usdVes} Bs/USD (${body.source})` +
-    `${body.changed ? '' : ' — sin cambio'}`,
+    `tasa      ${rate.rateDate} → ${rate.usdVes} Bs/USD (${rate.source})` +
+    `${rate.changed ? '' : ' — sin cambio'}` +
+    `${rate.gap === null || rate.gap === undefined ? '' : ` · brecha ${(rate.gap * 100).toFixed(2)}%`}`,
   )
 } else {
-  console.error(`No se guardó: ${body.detail}`)
+  console.error(`tasa      no se guardó: ${rate.detail}`)
   process.exitCode = 1
+}
+
+if (body.reminders) {
+  console.log(
+    `recordatorios  ${body.reminders.sent} de ${body.reminders.candidates} enviados`,
+  )
 }

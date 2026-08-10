@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getProfile } from '@/lib/supabase/server'
+import { loadBookingEmail, sendPaymentApproved, sendPaymentRejected } from '@/lib/email'
 
 const decision = z.object({
   paymentId: z.string().uuid(),
@@ -65,9 +66,11 @@ export async function approvePayment(
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, status, total_usd, deposit_ratio')
+    .select('id, code, status, total_usd, deposit_ratio')
     .eq('id', payment.booking_id)
     .single()
+
+  let confirmed = false
 
   if (booking && booking.status === 'pending') {
     const { data: approved } = await supabase
@@ -79,6 +82,9 @@ export async function approvePayment(
     const paid = (approved ?? []).reduce((sum, p) => sum + Number(p.amount_usd), 0)
     const required = Number(booking.total_usd) * Number(booking.deposit_ratio)
 
+    // El margen de un centavo absorbe el redondeo al convertir pagos en
+    // bolívares: sin él, un anticipo exacto quedaría corto por 0,004 y la
+    // reserva no se confirmaría nunca.
     if (paid + 0.01 >= required) {
       await supabase
         .from('bookings')
@@ -89,15 +95,31 @@ export async function approvePayment(
         })
         .eq('id', booking.id)
 
-      revalidatePath('/admin')
-      revalidatePath('/admin/calendario')
-      revalidatePath('/admin/pagos')
-      return { ok: 'Pago aprobado y reserva confirmada' }
+      confirmed = true
     }
   }
 
+  if (booking) {
+    const detail = await loadBookingEmail(booking.code)
+    if (detail) {
+      await sendPaymentApproved({
+        ...detail,
+        confirmed,
+        pending: Math.max(
+          0,
+          confirmed ? detail.totalUsd - detail.paidUsd : detail.depositUsd - detail.paidUsd,
+        ),
+      })
+    }
+  }
+
+  revalidatePath('/admin')
+  revalidatePath('/admin/calendario')
   revalidatePath('/admin/pagos')
-  return { ok: 'Pago aprobado. Anticipo aún incompleto.' }
+
+  return {
+    ok: confirmed ? 'Pago aprobado y reserva confirmada' : 'Pago aprobado. Anticipo aún incompleto.',
+  }
 }
 
 /**
@@ -117,18 +139,30 @@ export async function rejectPayment(
 
   const staff = await requireStaff()
   const supabase = await createClient()
+  const reason = parsed.data.reason ?? 'No se pudo verificar el comprobante'
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('payments')
     .update({
       status: 'rejected',
       reviewed_by: staff.id,
       reviewed_at: new Date().toISOString(),
-      rejection_reason: parsed.data.reason ?? 'No se pudo verificar el comprobante',
+      rejection_reason: reason,
     })
     .eq('id', parsed.data.paymentId)
+    .select('bookings ( code )')
+    .single()
 
   if (error) return { error: 'No se pudo rechazar' }
+
+  // Un rechazo sin aviso deja al huésped esperando una confirmación que no va a
+  // llegar, hasta que las fechas expiran. El motivo va en el correo para que
+  // pueda corregir en vez de adivinar.
+  const booking = Array.isArray(updated?.bookings) ? updated.bookings[0] : updated?.bookings
+  if (booking?.code) {
+    const detail = await loadBookingEmail(booking.code)
+    if (detail) await sendPaymentRejected({ ...detail, reason })
+  }
 
   revalidatePath('/admin/pagos')
   return { ok: 'Pago rechazado' }

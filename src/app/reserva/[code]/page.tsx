@@ -5,6 +5,9 @@ import { usd, ves, dateLabel } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { PaymentReportForm } from '@/components/payment-report-form'
+import { CardCheckoutButton } from '@/components/card-checkout-button'
+import { AwaitingWebhook } from '@/components/awaiting-webhook'
+import { stripeEnabled, stripeIsTestMode } from '@/lib/stripe'
 import type { PaymentMethod, PaymentStatus, BookingStatus } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -86,8 +89,23 @@ const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: string }> = {
   refunded: { label: 'Reembolsado', tone: 'text-ink/50' },
 }
 
-export default async function BookingPage({ params }: { params: Promise<{ code: string }> }) {
+// Volver del checkout no confirma nada: la confirmación llega por webhook, unos
+// segundos después. El aviso depende del estado real de la reserva, no solo del
+// parámetro de la URL: ese parámetro se queda al recargar, y sin mirar el estado
+// el mensaje seguiría diciendo «lo estamos confirmando» sobre una reserva ya
+// confirmada.
+
+export default async function BookingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ code: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { code } = await params
+  const sp = await searchParams
+  const checkout = Array.isArray(sp.pago) ? sp.pago[0] : sp.pago
+
   const supabase = await createClient()
 
   const [{ data }, { data: settings }, { data: accounts }] = await Promise.all([
@@ -112,6 +130,13 @@ export default async function BookingPage({ params }: { params: Promise<{ code: 
   const canReport = booking.status === 'pending' || booking.status === 'confirmed'
   const remaining = Math.max(0, booking.total_usd - booking.paid_usd)
 
+  // Mientras falte el anticipo se cobra eso; después, el saldo. Mismo criterio
+  // que usa el servidor al crear la sesión de Stripe.
+  const cardAmount = outstanding > 0 ? outstanding : remaining
+
+  // ¿Llegó ya el webhook? Se mira el estado real, no el parámetro de la URL.
+  const cardSettled = booking.status !== 'pending' || booking.paid_usd > 0
+
   return (
     <>
       <SiteHeader businessName={businessName} />
@@ -131,6 +156,24 @@ export default async function BookingPage({ params }: { params: Promise<{ code: 
           {booking.guests > 1 ? 'es' : ''}
         </p>
         <p className="mt-3 text-sm text-ink/55">{status.detail}</p>
+
+        {/*
+          Tres desenlaces distintos al volver del checkout, y solo el primero
+          justifica pedir paciencia.
+        */}
+        {checkout === 'procesando' && !cardSettled && <AwaitingWebhook />}
+
+        {checkout === 'procesando' && cardSettled && (
+          <p className="mt-5 rounded-xl border border-moss/40 bg-moss/5 px-4 py-3 text-sm text-moss">
+            Pago recibido y verificado. No hace falta que hagas nada más.
+          </p>
+        )}
+
+        {checkout === 'cancelado' && (
+          <p className="mt-5 rounded-xl border border-ink/20 bg-ink/5 px-4 py-3 text-sm text-ink/70">
+            Cancelaste el pago con tarjeta. Tus fechas siguen retenidas.
+          </p>
+        )}
 
         {/* Resumen económico */}
         <section className="mt-8 rounded-2xl border border-ink/10 bg-white p-6">
@@ -181,6 +224,23 @@ export default async function BookingPage({ params }: { params: Promise<{ code: 
             </p>
           )}
         </section>
+
+        {/* Tarjeta internacional */}
+        {canReport && cardAmount > 0 && stripeEnabled() && (
+          <section className="mt-8">
+            <h2 className="text-xl font-semibold tracking-tight">Pago inmediato</h2>
+            <p className="mt-2 text-sm text-ink/55">
+              Confirmación automática, sin esperar verificación.
+            </p>
+            <div className="mt-5">
+              <CardCheckoutButton
+                code={booking.code}
+                amountLabel={usd(cardAmount)}
+                testMode={stripeIsTestMode()}
+              />
+            </div>
+          </section>
+        )}
 
         {/* Dónde pagar */}
         {canReport && accounts && accounts.length > 0 && (

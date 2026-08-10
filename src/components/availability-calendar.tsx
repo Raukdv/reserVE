@@ -40,7 +40,13 @@ function Month({ year, month, occupied }: { year: number; month: number; occupie
 
   return (
     <div>
-      <p className="mb-3 text-sm font-medium capitalize">{monthName.format(first)}</p>
+      {/*
+        first-letter y no capitalize: `capitalize` pone mayúscula en cada palabra
+        y deja «Agosto De 2026».
+      */}
+      <p className="mb-3 text-sm font-medium first-letter:uppercase">
+        {monthName.format(first)}
+      </p>
 
       <div className="grid grid-cols-7 gap-1 text-center text-[11px]">
         {WEEKDAYS.map((d, i) => (

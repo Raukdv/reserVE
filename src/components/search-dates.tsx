@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 const isoToday = () => new Date().toISOString().slice(0, 10)
@@ -14,11 +14,23 @@ const addDays = (iso: string, days: number) => {
 export function SearchDates({
   defaults,
   compact = false,
+  target = '/alojamientos',
+  submitLabel = 'Buscar',
 }: {
   defaults?: { from?: string; to?: string; guests?: number }
   compact?: boolean
+  /**
+   * A dónde lleva el formulario.
+   *
+   * En la portada y el listado busca entre todas las unidades. Dentro de una
+   * ficha apunta a esa misma ficha: quien ya eligió alojamiento no debe acabar
+   * de vuelta en el listado por consultar unas fechas.
+   */
+  target?: string
+  submitLabel?: string
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [from, setFrom] = useState(defaults?.from ?? '')
   const [to, setTo] = useState(defaults?.to ?? '')
   const [guests, setGuests] = useState(defaults?.guests ?? 2)
@@ -37,7 +49,10 @@ export function SearchDates({
     if (from) params.set('desde', from)
     if (to) params.set('hasta', to)
     params.set('huespedes', String(guests))
-    router.push(`/alojamientos?${params}`)
+    // Consultar fechas dentro de la misma ficha no debe saltar al inicio de la
+    // página: el cotizador está en la barra lateral y el huésped quiere ver ahí
+    // mismo el resultado.
+    router.push(`${target}?${params}`, { scroll: target !== pathname })
   }
 
   const field = 'w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm'
@@ -88,7 +103,7 @@ export function SearchDates({
         type="submit"
         className="self-end rounded-xl bg-ink px-6 py-2.5 text-sm text-sand transition hover:bg-ink/85"
       >
-        Buscar
+        {submitLabel}
       </button>
     </form>
   )

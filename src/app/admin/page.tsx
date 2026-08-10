@@ -147,8 +147,20 @@ export default async function AdminHome() {
             </thead>
             <tbody className="divide-y divide-ink/8">
               {upcoming.map((b) => (
-                <tr key={b.code}>
-                  <td className="py-3 font-mono text-xs">{b.code}</td>
+                <tr key={b.code} className="group cursor-pointer hover:bg-sand/60">
+                  {/*
+                    El enlace va dentro de la primera celda y se estira sobre toda
+                    la fila: anidar <a> alrededor de <tr> no es HTML válido y los
+                    navegadores lo reescriben fuera de la tabla.
+                  */}
+                  <td className="relative py-3 font-mono text-xs">
+                    <Link
+                      href={`/admin/reservas/${b.code}`}
+                      className="absolute inset-0"
+                      aria-label={`Ver reserva ${b.code}`}
+                    />
+                    {b.code}
+                  </td>
                   <td className="py-3">{b.guest_name}</td>
                   <td className="py-3 text-ink/60">{unitName(b.units)}</td>
                   <td className="py-3 text-ink/60">

@@ -214,7 +214,7 @@ export default async function CalendarPage({
             {monthSpans.map((m) => (
               <div
                 key={m.name}
-                className="border-r border-ink/10 px-2 py-1.5 text-xs capitalize text-ink/50"
+                className="border-r border-ink/10 px-2 py-1.5 text-xs text-ink/50 first-letter:uppercase"
                 style={{ width: `${m.span * DAY_WIDTH}px` }}
               >
                 {m.name}

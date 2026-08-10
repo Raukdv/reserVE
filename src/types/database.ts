@@ -31,6 +31,13 @@ export type PaymentMethod =
  */
 export type RateMarket = 'oficial' | 'paralelo'
 
+export type EmailKind =
+  | 'booking_created'
+  | 'payment_received'
+  | 'payment_approved'
+  | 'payment_rejected'
+  | 'arrival_reminder'
+
 /** Resultado de la función quote_stay(). */
 export type Quote =
   | { ok: false; error: string; min_nights?: number; max_nights?: number }
@@ -170,7 +177,15 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['unit_media']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'unit_media_unit_id_fkey'
+            columns: ['unit_id']
+            isOneToOne: false
+            referencedRelation: 'units'
+            referencedColumns: ['id']
+          },
+        ]
       }
 
       amenities: {
@@ -226,7 +241,15 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['season_rates']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'season_rates_unit_id_fkey'
+            columns: ['unit_id']
+            isOneToOne: false
+            referencedRelation: 'units'
+            referencedColumns: ['id']
+          },
+        ]
       }
 
       unit_holds: {
@@ -309,6 +332,39 @@ export interface Database {
         Relationships: []
       }
 
+      email_log: {
+        Row: {
+          id: number
+          sent_at: string
+          kind: EmailKind
+          recipient: string
+          booking_id: string | null
+          ok: boolean
+          provider_id: string | null
+          detail: string | null
+        }
+        Insert: {
+          id?: number
+          sent_at?: string
+          kind: EmailKind
+          recipient: string
+          booking_id?: string | null
+          ok: boolean
+          provider_id?: string | null
+          detail?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['email_log']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'email_log_booking_id_fkey'
+            columns: ['booking_id']
+            isOneToOne: false
+            referencedRelation: 'bookings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
       rate_fetch_log: {
         Row: {
           id: number
@@ -346,7 +402,8 @@ export interface Database {
           nights: number
           guests: number
           guest_name: string
-          guest_email: string
+          /** Null en reservas tomadas por teléfono. El formulario público sí lo exige. */
+          guest_email: string | null
           guest_phone: string | null
           guest_document: string | null
           notes: string | null
@@ -363,6 +420,12 @@ export interface Database {
           expires_at: string | null
           cancelled_at: string | null
           cancel_reason: string | null
+          /** Quién confirmó sin cubrir el anticipo. Null en las confirmadas por pago. */
+          manual_confirmation_by: string | null
+          manual_confirmation_reason: string | null
+          manual_confirmation_at: string | null
+          checked_in_at: string | null
+          checked_out_at: string | null
           created_at: string
           updated_at: string
         }
@@ -377,7 +440,7 @@ export interface Database {
           check_out: string
           guests?: number
           guest_name: string
-          guest_email: string
+          guest_email?: string | null
           guest_phone?: string | null
           guest_document?: string | null
           notes?: string | null
@@ -393,6 +456,11 @@ export interface Database {
           expires_at?: string | null
           cancelled_at?: string | null
           cancel_reason?: string | null
+          manual_confirmation_by?: string | null
+          manual_confirmation_reason?: string | null
+          manual_confirmation_at?: string | null
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -441,6 +509,10 @@ export interface Database {
           payer_name: string | null
           payer_document: string | null
           payer_bank: string | null
+          /** Pasarela que procesó el cobro. Null en pagos reportados a mano. */
+          provider: string | null
+          /** Identificador del cobro en la pasarela. Hace idempotente el webhook. */
+          provider_ref: string | null
           gateway_payload: Json | null
           reviewed_by: string | null
           reviewed_at: string | null
@@ -465,6 +537,8 @@ export interface Database {
           payer_name?: string | null
           payer_document?: string | null
           payer_bank?: string | null
+          provider?: string | null
+          provider_ref?: string | null
           gateway_payload?: Json | null
           reviewed_by?: string | null
           reviewed_at?: string | null
@@ -574,6 +648,22 @@ export interface Database {
       is_staff: { Args: Record<string, never>; Returns: boolean }
       expire_stale_bookings: { Args: Record<string, never>; Returns: number }
       prune_rate_fetch_log: { Args: Record<string, never>; Returns: undefined }
+      prune_email_log: { Args: Record<string, never>; Returns: undefined }
+      bookings_arriving_tomorrow: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          code: string
+          guest_name: string
+          guest_email: string
+          unit_name: string
+          check_in: string
+          check_out: string
+          nights: number
+          total_usd: number
+          paid_usd: number
+        }[]
+      }
       is_available: {
         Args: { p_unit_id: string; p_check_in: string; p_check_out: string }
         Returns: boolean
@@ -584,8 +674,25 @@ export interface Database {
           p_check_in: string
           p_check_out: string
           p_guests?: number
+          /** Solo el operador: permite cerrar para hoy y saltar el mínimo de noches. */
+          p_skip_notice?: boolean
         }
         Returns: Quote
+      }
+      staff_create_booking: {
+        Args: {
+          p_unit_id: string
+          p_check_in: string
+          p_check_out: string
+          p_guests: number
+          p_guest_name: string
+          p_guest_email?: string | null
+          p_guest_phone?: string | null
+          p_guest_document?: string | null
+          p_notes?: string | null
+          p_discount_usd?: number
+        }
+        Returns: Json
       }
       create_booking: {
         Args: {
@@ -623,10 +730,41 @@ export interface Database {
         Returns: Json
       }
       release_block: { Args: { p_hold_id: string }; Returns: Json }
+      settle_booking: { Args: { p_booking_id: string }; Returns: Json }
+      staff_record_payment: {
+        Args: {
+          p_code: string
+          p_method: PaymentMethod
+          p_currency: string
+          p_amount: number
+          p_reference?: string | null
+          p_notes?: string | null
+        }
+        Returns: Json
+      }
+      staff_confirm_booking: { Args: { p_code: string; p_reason: string }; Returns: Json }
+      staff_delete_unit: { Args: { p_unit_id: string }; Returns: Json }
+      staff_check_in: { Args: { p_code: string }; Returns: Json }
+      staff_check_out: { Args: { p_code: string; p_force?: boolean }; Returns: Json }
+      staff_cancel_booking: { Args: { p_code: string; p_reason: string | null }; Returns: Json }
+      record_gateway_payment: {
+        Args: {
+          p_code: string
+          p_provider: string
+          p_provider_ref: string
+          p_method: PaymentMethod
+          p_currency: string
+          p_amount: number
+          p_amount_usd: number
+          p_payload?: Json | null
+        }
+        Returns: Json
+      }
     }
 
     Enums: {
       user_role: UserRole
+      email_kind: EmailKind
       hold_kind: HoldKind
       booking_status: BookingStatus
       payment_kind: PaymentKind

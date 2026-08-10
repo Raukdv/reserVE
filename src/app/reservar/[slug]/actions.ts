@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { loadBookingEmail, sendBookingCreated } from '@/lib/email'
+import { documentError } from '@/lib/document'
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 
@@ -15,7 +17,15 @@ const schema = z.object({
   name: z.string().trim().min(3, 'Escribe tu nombre completo').max(120),
   email: z.string().trim().toLowerCase().email('Revisa el correo'),
   phone: z.string().trim().max(40).optional().or(z.literal('')),
-  document: z.string().trim().max(40).optional().or(z.literal('')),
+  // El cliente ya valida, pero se puede saltar: un documento inválido acabaría
+  // en una factura.
+  document: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .or(z.literal(''))
+    .refine((v) => !documentError(v), (v) => ({ message: documentError(v) ?? 'Documento inválido' })),
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
 })
 
@@ -79,6 +89,13 @@ export async function createBooking(
   if (!result.ok || !result.code) {
     return { error: ERRORS[result.error ?? ''] ?? 'No se pudo crear la reserva.' }
   }
+
+  // El código de la reserva solo vive en la URL: sin este correo, cerrar la
+  // pestaña deja al huésped sin forma de volver a su reserva ni de pagarla. Aun
+  // así no se aborta si falla — las fechas ya están retenidas y la reserva es
+  // válida. El fallo queda en email_log.
+  const booking = await loadBookingEmail(result.code)
+  if (booking) await sendBookingCreated(booking)
 
   // El calendario público y el del panel cambian en cuanto se retienen las fechas.
   revalidatePath('/alojamientos', 'layout')

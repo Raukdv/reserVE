@@ -196,8 +196,18 @@ export default async function UnitPage({
                 <p className="mt-1 text-xs text-ink/50">Mínimo {unit.min_nights} noches</p>
               )}
 
+              {/*
+                Apunta a esta misma ficha, no al listado: quien ya eligió
+                alojamiento solo quiere ver el precio de sus fechas, no volver a
+                buscar entre todas las unidades.
+              */}
               <div className="mt-5">
-                <SearchDates defaults={{ from, to, guests }} compact />
+                <SearchDates
+                  defaults={{ from, to, guests }}
+                  compact
+                  target={`/alojamientos/${unit.slug}`}
+                  submitLabel="Ver precio"
+                />
               </div>
 
               {quote?.ok && (
