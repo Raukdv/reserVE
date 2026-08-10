@@ -1,0 +1,324 @@
+# reserVE — Arquitectura
+
+Sistema de reservas por fechas para un negocio de alojamiento único (hotel, posada,
+casa o complejo habitacional) operando en Venezuela.
+
+No es un marketplace. Hay un solo dueño del inventario, y el sistema está optimizado
+para que esa persona gestione su calendario, no para intermediar entre terceros.
+
+> **Restricción de costo cero.** Durante el desarrollo el sistema debe operar sin
+> generar cobro en Vercel, Supabase ni Resend. Esta restricción tiene el mismo peso que
+> cualquier requisito funcional y condiciona decisiones técnicas concretas: qué rutas
+> pasan por el middleware, qué se cachea, dónde corre el trabajo programado.
+>
+> Se construye contra los límites del plan Hobby de Vercel y el plan gratuito de
+> Supabase, que son los más estrictos. Pasar a un plan de pago en producción será
+> entonces puro margen, sin rediseño. Ver [COSTO-CERO.md](./COSTO-CERO.md) para los
+> límites concretos y las reglas que se derivan de ellos.
+
+## Stack
+
+| Capa | Elección |
+|---|---|
+| Core | Next.js (App Router) sobre Node.js |
+| Auth | Supabase Auth (`@supabase/ssr`, cookies) |
+| Datos | Supabase Postgres + RLS |
+| Archivos | Supabase Storage (fotos de unidades, comprobantes de pago) |
+| Fechas | `date-fns` + `date-fns-tz`, zona horaria del negocio fija |
+| Validación | `zod` en todo borde de entrada |
+| Email | Resend |
+
+Un solo proyecto y un solo deploy: landing pública, panel de administración y rutas
+de API viven juntos.
+
+## Decisiones de fondo
+
+### 1. La base de datos es la que garantiza que no haya doble reserva
+
+Toda la ocupación —reservas y bloqueos manuales por igual— vive en una sola tabla,
+`unit_holds`, con una restricción `EXCLUDE USING gist`. Postgres rechaza cualquier
+solape a nivel de motor.
+
+Esto no es una optimización: es la diferencia entre un sistema de reservas y un
+formulario de contacto. Una validación en JavaScript falla ante dos pestañas abiertas,
+dos usuarios simultáneos o un bug de refactor. La restricción no falla nunca.
+
+Como consecuencia, consultar disponibilidad es una sola query contra una sola tabla,
+sin importar si la fecha está ocupada por una reserva real o por un bloqueo de
+mantenimiento.
+
+### 2. Los rangos de fecha son semiabiertos: `[check_in, check_out)`
+
+El día de salida no cuenta como noche ocupada. Una salida el día 14 y una entrada el
+día 14 no se solapan, que es como funciona la hotelería real. `daterange` de Postgres
+lo modela nativamente y el operador `&&` lo resuelve sin código propio.
+
+### 3. El dinero es bimoneda con la tasa congelada
+
+Los precios se publican en USD como referencia y se cobran en VES por los canales
+oficiales venezolanos, a tasa BCV.
+
+La tasa cambia a diario, así que cada reserva **congela** la tasa que se le aplicó en
+el momento de cotizar. Una reserva de hace tres meses jamás se recalcula con la tasa
+de hoy. Sin este snapshot, los reportes de ingresos y los saldos pendientes se vuelven
+ficción.
+
+**Fecha valor, no fecha de descarga.** El BCV publica de lunes a viernes entre las 4 y
+las 5 de la tarde (hora de Venezuela), y la tasa publicada **entra en vigencia el día
+hábil siguiente**. `exchange_rates.rate_date` guarda esa fecha valor —la que el propio
+BCV declara en su página—, no el día en que el alimentador la descargó.
+
+De ahí que `current_rate()` no devuelva la fila más reciente, sino la de mayor fecha
+valor **que ya haya entrado en vigencia**. Devolver la más reciente cobraría con la
+tasa de mañana durante toda la tarde de hoy.
+
+El cron corre a las 17:30 hora de Venezuela, con la ventana de publicación ya cerrada.
+Corre todos los días, incluidos fines de semana y feriados: aunque no haya publicación
+nueva, la escritura diaria es lo que impide la pausa por inactividad de Supabase.
+
+**Consultar más seguido no aporta nada.** La tasa oficial es un promedio ponderado que
+el BCV publica una vez y que no cambia durante la jornada. Una lectura diaria no es una
+aproximación: es exacta. Por eso el límite de cron diario del plan Hobby de Vercel no
+cuesta un solo punto básico de precisión.
+
+**El monto en bolívares caduca; la reserva no.** `bookings.rate_date` guarda la fecha
+valor de `rate_snapshot`. Cuando deja de coincidir con `current_rate_date()`, la cifra
+en bolívares se recalcula: la reserva sigue viva, lo que vence es el monto. Esto no es
+solo protección de margen —la tasa oficial se mueve ~0,45% al día, con saltos de hasta
+1,66%—, es lo que la ley exige, porque la factura debe llevar el equivalente a la tasa
+**de la fecha de la transacción**.
+
+**Guardia de tasa rancia.** Si la tasa vigente tiene más de 3 días de fecha valor
+—tolerancia para fin de semana largo—, `rate_is_stale()` es cierto y `quote_stay()`
+devuelve `stale_rate` en vez de cotizar. Un alimentador caído se convierte en un error
+visible, no en cobros silenciosamente incorrectos.
+
+**Tasa paralela: métrica, nunca cobro.** `exchange_rates` distingue `market`
+(`oficial` / `paralelo`) de `source` (proveedor del dato). El paralelo se registra solo
+para medir la brecha —hoy ~11%, en junio ~21%, a principios de 2026 cerca del 40%— y
+mostrarla en el panel.
+
+`current_rate()` filtra `market = 'oficial'` y jamás mira la otra. La Ley de Precios
+Justos (art. 46 núm. 5) obliga a operar a la tasa del BCV, y además prohíbe ofrecer
+precio más bajo por pagar en divisa, así que tampoco cabe disfrazar la brecha como
+descuento. **La única palanca legal frente a la brecha es el precio de lista en USD**,
+y para eso sirve tenerla a la vista.
+
+Toda lectura de tasas en las páginas pasa por `getRateSummary()`, para que ninguna
+consulta suelta olvide el filtro de mercado y acabe cobrando al paralelo.
+
+### 3.1 La zona horaria del negocio es explícita
+
+Postgres corre en UTC y el negocio opera en UTC−4. Entre las 8 de la noche y la
+medianoche hora local, `current_date` en la base ya es el día siguiente.
+
+Toda regla de calendario usa `business_today()` en lugar de `current_date`: la
+antelación mínima de una reserva, la vigencia de la tasa, y cualquier cosa que
+signifique "hoy" para el operador o el huésped.
+
+### 4. El reporte de pago manual es un método de primera clase
+
+En Venezuela la mayoría de los pagos se confirman fuera de banda: el cliente paga por
+Zelle, Binance, PayPal o Pago Móvil y reporta el comprobante por WhatsApp o email, y
+el negocio verifica a mano.
+
+El sistema absorbe ese flujo dentro de la app en vez de dejarlo en mensajería. El
+huésped declara canal, origen, referencia, monto, fecha y sube la captura; el
+administrador aprueba o rechaza desde una bandeja dedicada.
+
+Este camino no desaparece cuando se integre C2P. Siempre habrá quien pague por Zelle.
+
+### 5. Los pagos automáticos se integran detrás de una interfaz
+
+`PaymentProvider` es la abstracción. La implementación de fase 1 es `ManualProvider`.
+Cuando exista RIF jurídico y contrato bancario, se añaden `MercantilC2PProvider` o
+`MegasoftProvider` sin tocar el dominio de reservas.
+
+Contexto de por qué importa: **Stripe no soporta entidades venezolanas** — Venezuela no
+está entre sus países habilitados. El cobro internacional se resuelve más adelante con
+dLocal Go o Binance Pay, o con un Merchant of Record.
+
+### 6. El precio siempre se calcula en el servidor
+
+`quote_stay()` es una función de Postgres. El cliente nunca envía un total; envía
+fechas y huéspedes, y recibe el desglose. Cualquier total que llegue desde el navegador
+se ignora.
+
+### 7. Las reservas pendientes expiran
+
+Un `pending` retiene inventario. Sin expiración, un carrito abandonado bloquea fechas
+vendibles para siempre.
+
+- Pago automático (futuro C2P): TTL corto, 30–60 min.
+- Reporte manual: TTL de 24–48 h, porque el huésped necesita ir al banco y volver.
+
+Un job periódico libera lo vencido desactivando el hold.
+
+## Modelo de datos
+
+```
+auth.users
+   └── profiles              rol: admin | staff | guest
+
+properties                   el negocio
+   └── units                 habitación / apartamento / casa entera
+        ├── unit_media       fotos ordenadas
+        ├── unit_amenities   → amenities
+        ├── season_rates     daterange → precio/noche + min_nights
+        └── unit_holds       ⭐ ocupación con EXCLUDE anti-solape
+             ├── bookings         kind='booking'
+             └── availability_blocks   kind='block'
+
+bookings
+   └── payments              ledger + bandeja de verificación manual
+
+exchange_rates               tasa BCV por día
+site_content                 secciones editables del home
+app_settings                 configuración del negocio (singleton)
+```
+
+## Estados
+
+**Reserva:** `pending → confirmed → checked_in → completed`
+con salidas laterales a `cancelled` y `expired`.
+
+Retienen inventario: `pending`, `confirmed`, `checked_in`.
+
+**Pago:** `pending → verifying → approved`
+con salidas a `rejected` y `refunded`.
+
+Solo `approved` cuenta para el saldo. La bandeja del administrador es el conjunto
+`verifying`.
+
+## Flujo de reserva
+
+```
+1. Huésped elige fechas y huéspedes
+2. quote_stay() en servidor → desglose USD + VES a tasa BCV de hoy
+3. Se crea booking 'pending' + hold activo  → las fechas quedan bloqueadas
+4. Paga el anticipo (% configurable) por el método que elija:
+
+   ├─ Canal oficial VE (Pago Móvil, transferencia, C2P manual)
+   │     → reporta referencia + captura → payment 'verifying'
+   ├─ Divisa (Zelle, Binance, PayPal, USDT, efectivo)
+   │     → reporta origen + ID + monto + fecha + captura → payment 'verifying'
+   └─ [F2] C2P por API → aprobación síncrona → 'approved' automático
+
+5. Admin verifica en la bandeja → aprueba → booking 'confirmed'
+   (o rechaza → el huésped corrige, o el TTL libera las fechas)
+
+6. El saldo restante se cobra antes o durante el check-in
+```
+
+## Rutas
+
+**Público**
+
+| Ruta | Contenido |
+|---|---|
+| `/` | Hero, unidades destacadas, sobre el negocio, galería, servicios, ubicación, FAQ, contacto. Buscador de fechas sticky |
+| `/alojamientos` | Listado filtrado por disponibilidad en el rango buscado |
+| `/alojamientos/[slug]` | Galería, amenities, calendario, precio en vivo |
+| `/reservar/[unitId]` | Datos del huésped → método de pago → reporte de comprobante |
+| `/reserva/[code]` | Consulta y gestión por link, sin cuenta obligatoria |
+| `/legal/*` | Condiciones, política de cancelación, privacidad |
+
+**Administración** (`/admin`, protegido por rol)
+
+| Ruta | Contenido |
+|---|---|
+| `/admin` | Llegadas y salidas de hoy, ocupación, ingresos del mes |
+| `/admin/calendario` | Timeline unidades × días. Arrastrar para bloquear, click para reservar |
+| `/admin/reservas` | Lista, filtros, detalle, cambio de estado |
+| `/admin/pagos` | ⭐ Bandeja de verificación: comprobante, monto declarado vs esperado, aprobar/rechazar |
+| `/admin/unidades` | CRUD, fotos, amenities, reglas |
+| `/admin/tarifas` | Temporadas, mínimo de noches |
+| `/admin/contenido` | Editar las secciones del home sin tocar código |
+| `/admin/ajustes` | Datos del negocio, políticas, anticipo, IGTF |
+
+Las dos pantallas que definen el producto son el **calendario timeline** y la
+**bandeja de pagos**. Son las que el operador abre todos los días.
+
+### El calendario timeline
+
+Filas = unidades, columnas = días, barras = ocupación. Es la convención de los
+*channel manager* hoteleros —el calendario múltiple de Airbnb, la extranet de
+Booking, Cloudbeds, Lodgify— y por debajo es un diagrama de Gantt.
+
+Se eligió frente a un calendario de mes porque la ocupación es bidimensional: qué
+unidad × qué noches. Un calendario de mes solo tiene una dimensión, así que con N
+unidades harían falta N calendarios y no se podría responder de un vistazo la
+pregunta diaria del operador: *¿qué tengo libre el fin de semana que viene?*
+
+En esta forma los huecos son espacio en blanco, así que lo vendible salta a la
+vista, y las noches huérfanas —el hueco de una o dos noches entre dos reservas que
+nadie compra— se detectan sin contar.
+
+El color codifica **estado**, no unidad: el operador escanea buscando qué requiere
+acción. Colorear por unidad no diría nada accionable.
+
+Está acotado a 45 días por vista. No es una decisión estética: cada celda es un
+nodo del DOM y renderizar sin tope quema el presupuesto de CPU del plan Hobby.
+Ver `COSTO-CERO.md`, regla 3.8.
+
+**Pendiente — barras a media celda.** Los PMS comerciales dibujan las estadías
+desplazadas media columna, de modo que una salida y una entrada el mismo día se
+ven como dos triángulos compartiendo el cuadro. Aquí se pintan como celdas
+completas adyacentes: correcto respecto al modelo, ya que el rango `[)` deja libre
+la noche de salida, pero visualmente sugiere que ese día está ocupado entero. Se
+abordará junto con arrastrar para bloquear.
+
+## Fases
+
+**F1 — Núcleo** *(completada)*
+Esquema, RLS, restricción anti-solape, unidades, disponibilidad, cotización bimoneda,
+reserva con reporte de pago manual, calendario de admin, bandeja de pagos.
+
+El circuito cierra: reservar → ver dónde pagar → reportar el comprobante → verificar en
+el panel → fecha bloqueada en el calendario.
+
+Cuatro funciones sostienen el flujo, todas `SECURITY DEFINER` porque quien reserva no
+tiene sesión:
+
+- `create_booking()` — hold y reserva en la misma transacción. La carrera entre dos
+  huéspedes por el mismo rango la resuelve el `EXCLUDE`, capturando `exclusion_violation`:
+  entre un "¿está libre?" y el `INSERT` siempre cabe otra transacción.
+- `get_booking(code)` — el huésped gestiona por enlace, sin cuenta.
+- `report_payment()` — deriva el monto en USD en el servidor; nunca lo acepta del cliente.
+- `refresh_booking_rate()` — recalcula solo la cifra en bolívares.
+
+Las tablas de admin siguen pendientes: `/admin/reservas`, `/unidades`, `/tarifas`,
+`/contenido` y `/ajustes`.
+
+**F2 — Público y automatización**
+Landing con contenido editable, emails transaccionales, gestión de reserva por link,
+integración C2P real cuando exista RIF jurídico.
+
+**F3 — Internacional y fiscal**
+dLocal Go o Binance Pay, IGTF si el negocio es designado contribuyente especial,
+facturación.
+
+**F4 — Extras**
+Sincronización iCal con Airbnb y Booking, multi-idioma, check-in online, cupones.
+
+F1 deliberadamente no depende de ninguna API bancaria. El flujo manual es el fallback
+permanente del sistema, y construirlo primero permite que la app venda antes de que se
+aprueben contratos bancarios, que en Venezuela tardan semanas.
+
+## Notas fiscales
+
+El **IGTF** es un impuesto del 3% sobre pagos en divisas y criptoactivos. Solo están
+obligados a recaudarlo los negocios designados **contribuyentes especiales** por el
+SENIAT. Se desglosa en factura junto al IVA del 16% y se paga en bolívares a tasa BCV.
+
+Queda como bandera de configuración, apagada por defecto, con el campo ya presente en
+el esquema para no requerir migración si el negocio cambia de condición.
+
+## Trampas evitadas por diseño
+
+- Fechas en UTC contra zona local — la zona del negocio es fija y explícita.
+- Precio calculado en el cliente — `quote_stay()` es autoridad única.
+- `pending` sin expiración — job de liberación.
+- Referencia bancaria reutilizada — índice único sobre referencias aprobadas.
+- Tasa BCV recalculada — snapshot por reserva.
+- Solape entre reserva y bloqueo manual — ambos viven en la misma tabla.

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "comment": "El BCV publica de lunes a viernes entre 4 y 5 PM hora de Venezuela (UTC-4). Se corre a las 17:30 VET = 21:30 UTC, ya cerrada la ventana. Corre todos los días aunque no haya publicación nueva: la escritura diaria es lo que evita la pausa por inactividad de Supabase. El plan Hobby solo admite frecuencia diaria.",
+      "path": "/api/cron/bcv-rate",
+      "schedule": "30 21 * * *"
+    }
+  ]
+}

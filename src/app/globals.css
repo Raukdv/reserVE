@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #16130f;
+  --color-sand: #f6f1e9;
+  --color-clay: #b4794f;
+  --color-moss: #4a5d4e;
+
+  /*
+    Azul petróleo, reservado al estado "hospedado" del calendario.
+    Existe para separarlo de "confirmada" por tono y no por intensidad: dos
+    variantes del mismo verde son indistinguibles en una barra de 28px, y
+    oscurecer una la haría competir con el ámbar de "pendiente de pago", que
+    debe ser el único estado que reclama atención.
+  */
+  --color-tide: #3d6b78;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-sand);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}

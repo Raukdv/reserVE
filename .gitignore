@@ -1,0 +1,35 @@
+# Secretos — nunca versionar
+.env
+.env.local
+.env.*.local
+.supabase/
+
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+build/
+dist/
+
+# Runtime
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Test / cobertura
+coverage/
+
+# Compilaciones de verificación (ver next.config.ts)
+.next-verify/
