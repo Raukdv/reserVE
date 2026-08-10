@@ -5,6 +5,42 @@ hacerlos sin volver a preguntar. Se borran de aquí al implementarse.
 
 ---
 
+## Webhook de Stripe en producción
+
+**Pendiente para el próximo día de trabajo.**
+
+El primer despliegue va **sin pasarela de pago**, solo para comprobar que la app
+corre en Vercel. Sin `STRIPE_SECRET_KEY` la sección «Pagar con tarjeta»
+sencillamente no aparece y el resto funciona igual: el reporte manual de
+comprobante es el camino principal y no depende de Stripe.
+
+Cuando toque activarla:
+
+1. **Crear el destino en Stripe.** Dashboard → Developers → Webhooks → Add
+   destination.
+   - URL: `https://reserve.lngeneralservices.com/api/webhooks/stripe`
+   - Evento: `checkout.session.completed`
+
+2. **Copiar su secreto de firma.** Es un `whsec_` **distinto** del que hay en
+   `.env.local`: ese pertenece al listener local de la CLI. Cada endpoint firma
+   con el suyo, y usar el equivocado devuelve 400 en todos los eventos.
+
+3. **Definir en Vercel** `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET`.
+
+4. **Comprobar la longitud** antes de dar nada por bueno: el cuerpo del `whsec_`
+   son 64 caracteres hexadecimales. Un pegado al que le falta uno mantiene el
+   prefijo correcto y cuesta horas encontrarlo. `pnpm env:check` lo detecta en
+   local; en Vercel hay que contarlo a mano o volver a copiarlo con cuidado.
+
+5. **Probar con una reserva real** y `4242 4242 4242 4242` mientras la clave siga
+   siendo `sk_test_`. Si el webhook no llega, `pnpm stripe:reconcile` recupera el
+   cobro.
+
+Recordatorio de fondo: activar cobros **reales** exige una entidad legal en un
+país soportado por Stripe, y Venezuela no lo está. Ver `docs/ARCHITECTURE.md`.
+
+---
+
 ## ~~Tipo de documento de identidad~~ — hecho el 2026-08-10
 
 Implementado en `src/lib/document.ts` y `src/components/document-input.tsx`, con

@@ -94,10 +94,24 @@ Donde sí se pierde dinero es en la ventana entre cotizar y cobrar (la tasa se
 mueve ~0,45% al día), y eso se resuelve caducando el monto en bolívares, no
 consultando más. Ver `ARCHITECTURE.md`, sección de dinero.
 
-Configurado en `vercel.json` a las **21:30 UTC = 17:30 hora de Venezuela**, con
-la ventana de publicación del BCV (4 a 5 de la tarde) ya cerrada. Corre los siete
-días de la semana: aunque el BCV no publique sábados ni domingos, la escritura
-diaria es lo que mantiene vivo el proyecto de Supabase.
+Configurado en `vercel.json`:
+
+```json
+{ "path": "/api/cron/daily", "schedule": "30 21 * * *" }
+```
+
+**21:30 UTC = 17:30 hora de Venezuela**, con la ventana de publicación del BCV
+(4 a 5 de la tarde) ya cerrada. Corre los siete días de la semana: aunque el BCV
+no publique sábados ni domingos, la escritura diaria es lo que mantiene vivo el
+proyecto de Supabase.
+
+Un solo cron hace los tres trabajos —tasa, recordatorios y poda de bitácoras—
+porque Hobby solo admite frecuencia diaria y no conviene gastar más de una
+entrada.
+
+El horario y el porqué se explican aquí y no en `vercel.json`: ese archivo se
+valida contra un esquema estricto que rechaza cualquier propiedad no reconocida,
+así que no admite un campo de comentario.
 
 El endpoint `/api/cron/bcv-rate` está protegido con `CRON_SECRET` y comparación
 de tiempo constante. Devuelve 200 incluso cuando no logra obtener la tasa: la
