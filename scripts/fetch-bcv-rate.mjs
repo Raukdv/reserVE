@@ -1,8 +1,8 @@
 // Dispara el alimentador de tasa BCV contra la app.
 //
-//   npm run rate:fetch                      -> http://localhost:3000
-//   npm run rate:fetch -- --url=http://localhost:3001
-//   npm run rate:fetch -- --url=https://reserve.lngeneralservices.com --force
+//   pnpm rate:fetch                      -> http://localhost:3000
+//   pnpm rate:fetch -- --url=http://localhost:3001
+//   pnpm rate:fetch -- --url=https://reserve.lngeneralservices.com --force
 //
 // Es un disparador, no una implementación: la lógica vive en src/lib/bcv.ts y
 // la ejecuta /api/cron/daily. Así lo que se prueba en local es exactamente

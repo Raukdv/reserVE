@@ -1,6 +1,6 @@
 // Revisa .env.local: que estén las variables y que tengan la pinta correcta.
 //
-//   npm run env:check
+//   pnpm env:check
 //
 // Existe por un pegado truncado del secreto de Stripe que costó un rato
 // encontrar: el prefijo coincidía, así que a ojo parecía bien, pero le faltaba

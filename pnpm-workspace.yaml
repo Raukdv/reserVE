@@ -1,0 +1,35 @@
+# Ajustes de pnpm.
+#
+# Van aquí y no en .npmrc porque son claves propias de pnpm: npm las lee, no las
+# entiende y avisa por cada invocación.
+
+# Ninguna dependencia puede ejecutar scripts de instalación.
+#
+# Es la protección más útil del cambio a pnpm. La vía habitual de un ataque de
+# cadena de suministro es un `postinstall` en una versión recién publicada de un
+# paquete transitivo, que se ejecuta con tus permisos en cuanto instalas. Con la
+# lista vacía, ninguno corre.
+#
+# Si algún paquete deja de funcionar por esto, se añade aquí de forma explícita
+# tras comprobar qué hace su script. Hoy solo `sharp` lo pide, y no hace falta:
+# se usa para la optimización de imágenes de Next, que este proyecto no utiliza
+# (ver docs/COSTO-CERO.md, regla 3.5).
+onlyBuiltDependencies: []
+
+# Guarda versiones exactas al añadir dependencias. Un rango con ^ deja entrar
+# versiones menores sin revisión, que es justo por donde se cuelan estos
+# incidentes.
+savePrefix: ''
+
+# Ignora versiones publicadas hace menos de un día. Los paquetes maliciosos
+# suelen detectarse y retirarse en las primeras horas.
+minimumReleaseAge: 1440
+
+# Decisión explícita por paquete, para que el aviso no se repita en cada
+# instalación.
+allowBuilds:
+  # Next lo usa para la optimización de imágenes en servidor, que este proyecto
+  # no utiliza: las fotos se suben ya redimensionadas y se sirven estáticas
+  # (docs/COSTO-CERO.md, regla 3.5). Sin su script de instalación el build
+  # funciona igual.
+  sharp: false

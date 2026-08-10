@@ -2,6 +2,10 @@
   "name": "reserve",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,7 +13,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:types": "supabase gen types typescript --linked > src/types/database.ts",
+    "db:types": "pnpm dlx supabase gen types typescript --linked > src/types/database.ts",
     "db:check": "node scripts/db-check.mjs",
     "rate:fetch": "node scripts/fetch-bcv-rate.mjs",
     "stripe:test": "node scripts/test-stripe.mjs",

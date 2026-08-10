@@ -33,3 +33,9 @@ coverage/
 
 # Compilaciones de verificación (ver next.config.ts)
 .next-verify/
+
+# pnpm
+.pnpm-store/
+
+# Artefactos de compilación de TypeScript
+*.tsbuildinfo

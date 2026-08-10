@@ -1,7 +1,7 @@
 // Verifica contra la base real que el esquema quedó como se espera:
 // tablas, restricción anti-solape, funciones y RLS.
 //
-//   npm run db:check
+//   pnpm db:check
 
 import { readFileSync } from 'node:fs'
 import pg from 'pg'
