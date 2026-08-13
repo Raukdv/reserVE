@@ -5,6 +5,47 @@ hacerlos sin volver a preguntar. Se borran de aquí al implementarse.
 
 ---
 
+## Devolver el `matcher` del middleware al abrir al público
+
+La puerta de acceso queda **decidida y en uso** — probada en local, variable ya
+definida en Vercel. Su funcionamiento está documentado en `VARIABLES.md`.
+
+Lo único pendiente es el resto que deja al retirarla. El `matcher` de
+`src/middleware.ts` se amplió a todas las rutas para que la puerta cubriera el
+sitio entero; con `SITE_PASSWORD` fuera, el middleware sigue corriendo en cada
+visita pública sin hacer nada útil.
+
+Devolverlo a:
+
+```ts
+matcher: ['/admin/:path*']
+```
+
+Es una invocación por visita, y el plan Hobby incluye 1.000.000 al mes. Con el
+sitio privado no se nota; con tráfico real, sí. Ver `docs/COSTO-CERO.md`,
+regla 3.3.
+
+---
+
+## `BUSINESS_TIMEZONE` no se usa
+
+Declarada en `.env.example` y en el esquema de `serverEnv()`, pero ningún código
+la lee: la zona aparece literal como `America/Caracas` en siete sitios entre el
+código y las migraciones.
+
+No tiene consecuencias hoy —el valor coincide— pero es una variable que promete
+algo que no cumple. Dos salidas honestas:
+
+- **Conectarla**: pasarla a las funciones de formato de fecha y a
+  `business_today()`. Implica que el negocio pueda operar en otra zona, cosa que
+  hoy no se necesita.
+- **Quitarla**: borrarla de `.env.example` y de `serverEnv()`, y dejar la zona
+  fija con un comentario que explique por qué.
+
+Lo segundo es más sincero mientras el negocio sea uno solo y esté en Venezuela.
+
+---
+
 ## Webhook de Stripe en producción
 
 **Pendiente para el próximo día de trabajo.**

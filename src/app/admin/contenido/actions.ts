@@ -58,6 +58,21 @@ const SECTIONS = {
     title: z.string().trim().max(120),
     body: z.string().trim().max(1000),
   }),
+
+  // Textos legales. Van en la base y no en el código porque son vinculantes y
+  // los edita el negocio, no quien programa. Una línea en blanco separa párrafos.
+  legal_condiciones: z.object({
+    title: z.string().trim().max(120),
+    body: z.string().trim().max(20000),
+  }),
+  legal_cancelacion: z.object({
+    title: z.string().trim().max(120),
+    body: z.string().trim().max(20000),
+  }),
+  legal_privacidad: z.object({
+    title: z.string().trim().max(120),
+    body: z.string().trim().max(20000),
+  }),
 } as const
 
 export type SectionKey = keyof typeof SECTIONS

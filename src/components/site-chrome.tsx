@@ -61,6 +61,7 @@ export function SiteFooter({
           <ul className="mt-2 space-y-1 text-ink/60">
             <li><Link href="/legal/condiciones" className="hover:underline">Condiciones</Link></li>
             <li><Link href="/legal/cancelacion" className="hover:underline">Cancelación</Link></li>
+            <li><Link href="/legal/privacidad" className="hover:underline">Privacidad</Link></li>
             <li><Link href="/login" className="hover:underline">Acceso interno</Link></li>
           </ul>
         </div>

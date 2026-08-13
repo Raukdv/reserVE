@@ -131,6 +131,92 @@ export function ContentSections({ content }: { content: Record<string, Section> 
           </>
         )}
       </Panel>
+
+      <div className="pt-3">
+        <h2 className="text-sm font-medium">Textos legales</h2>
+        <p className="mt-1 text-sm text-ink/55">
+          Enlazados desde el pie de todas las páginas. Mientras estén vacíos, la página
+          muestra un aviso con tus datos de contacto en lugar de un texto inventado.
+        </p>
+        <p className="mt-2 text-xs text-ink/45">
+          Son documentos vinculantes: redáctalos tú o con quien te asesore. Deja una línea
+          en blanco entre párrafos.
+        </p>
+      </div>
+
+      <Panel
+        sectionKey="legal_condiciones"
+        heading="Condiciones de reserva"
+        data={content.legal_condiciones}
+      >
+        {(data) => (
+          <>
+            <Text name="title" label="Título" value={str(data, 'title')} />
+            <Area
+              name="body"
+              label="Texto"
+              value={str(data, 'body')}
+              rows={10}
+              placeholder={
+                'Qué incluye la tarifa y qué no.\n\n' +
+                'Horarios de entrada y salida.\n\n' +
+                'Anticipo exigido y plazo para pagarlo.\n\n' +
+                'Normas de la casa: mascotas, visitas, ruido.\n\n' +
+                'Responsabilidad por daños.'
+              }
+            />
+          </>
+        )}
+      </Panel>
+
+      <Panel
+        sectionKey="legal_cancelacion"
+        heading="Política de cancelación"
+        hint="Si la dejas vacía, se muestra la versión corta de Ajustes."
+        data={content.legal_cancelacion}
+      >
+        {(data) => (
+          <>
+            <Text name="title" label="Título" value={str(data, 'title')} />
+            <Area
+              name="body"
+              label="Texto"
+              value={str(data, 'body')}
+              rows={8}
+              placeholder={
+                'Plazos y porcentaje reembolsable en cada tramo.\n\n' +
+                'Cómo y cuándo se devuelve el dinero.\n\n' +
+                'Qué pasa si no se presenta.\n\n' +
+                'Cambios de fecha.'
+              }
+            />
+          </>
+        )}
+      </Panel>
+
+      <Panel
+        sectionKey="legal_privacidad"
+        heading="Privacidad"
+        data={content.legal_privacidad}
+      >
+        {(data) => (
+          <>
+            <Text name="title" label="Título" value={str(data, 'title')} />
+            <Area
+              name="body"
+              label="Texto"
+              value={str(data, 'body')}
+              rows={8}
+              placeholder={
+                'Qué datos se recogen: nombre, correo, teléfono, documento, comprobantes de pago.\n\n' +
+                'Para qué se usan y cuánto tiempo se conservan.\n\n' +
+                'Con quién se comparten: pasarela de pago, servicio de correo.\n\n' +
+                'Cómo pedir su eliminación.'
+              }
+            />
+          </>
+        )}
+      </Panel>
     </div>
   )
 }
@@ -188,16 +274,24 @@ function Area({
   label,
   value,
   rows,
+  placeholder,
 }: {
   name: string
   label: string
   value: string
   rows: number
+  placeholder?: string
 }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm text-ink/60">{label}</span>
-      <textarea name={name} defaultValue={value} rows={rows} className={field} />
+      <textarea
+        name={name}
+        defaultValue={value}
+        rows={rows}
+        placeholder={placeholder}
+        className={field}
+      />
     </label>
   )
 }
