@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import Link from 'next/link'
 import { saveSection, type ContentState } from '@/app/admin/contenido/actions'
 
 const field =
@@ -133,12 +134,12 @@ export function ContentSections({ content }: { content: Record<string, Section> 
       </Panel>
 
       <div className="pt-3">
-        <h2 className="text-sm font-medium">Textos legales</h2>
-        <p className="mt-1 text-sm text-ink/55">
+        <h2 className="text-base font-semibold">Textos legales</h2>
+        <p className="mt-1 text-descripcion text-ink/70">
           Enlazados desde el pie de todas las páginas. Mientras estén vacíos, la página
           muestra un aviso con tus datos de contacto en lugar de un texto inventado.
         </p>
-        <p className="mt-2 text-xs text-ink/45">
+        <p className="mt-2 text-xs text-ink/60">
           Son documentos vinculantes: redáctalos tú o con quien te asesore. Deja una línea
           en blanco entre párrafos.
         </p>
@@ -169,30 +170,25 @@ export function ContentSections({ content }: { content: Record<string, Section> 
         )}
       </Panel>
 
-      <Panel
-        sectionKey="legal_cancelacion"
-        heading="Política de cancelación"
-        hint="Si la dejas vacía, se muestra la versión corta de Ajustes."
-        data={content.legal_cancelacion}
-      >
-        {(data) => (
-          <>
-            <Text name="title" label="Título" value={str(data, 'title')} />
-            <Area
-              name="body"
-              label="Texto"
-              value={str(data, 'body')}
-              rows={8}
-              placeholder={
-                'Plazos y porcentaje reembolsable en cada tramo.\n\n' +
-                'Cómo y cuándo se devuelve el dinero.\n\n' +
-                'Qué pasa si no se presenta.\n\n' +
-                'Cambios de fecha.'
-              }
-            />
-          </>
-        )}
-      </Panel>
+      {/*
+        Cancelación no se redacta aquí a propósito.
+        Es el único texto legal que además mueve dinero: lo que dice tiene que
+        ser lo que `cancellation_quote()` calcula. Se publica generado desde los
+        tramos, y el título y el texto de apoyo se editan en Ajustes, pegados a
+        esos tramos, para que nadie escriba una promesa que el servidor no vaya
+        a cumplir.
+      */}
+      <div className="rounded-2xl border border-ink/10 bg-white p-5">
+        <h3 className="text-sm font-medium">Política de cancelación</h3>
+        <p className="mt-1 text-sm text-ink/70">
+          Se publica sola a partir de los tramos de reembolso: lo que lee el huésped es
+          exactamente lo que se le devuelve. El título y el texto de apoyo están en{' '}
+          <Link href="/admin/ajustes" className="underline">
+            Ajustes → Políticas
+          </Link>
+          .
+        </p>
+      </div>
 
       <Panel
         sectionKey="legal_privacidad"
@@ -238,8 +234,8 @@ function Panel({
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-white p-6">
-      <h2 className="text-sm font-medium">{heading}</h2>
-      {hint && <p className="mt-1 text-sm text-ink/50">{hint}</p>}
+      <h2 className="text-base font-semibold">{heading}</h2>
+      {hint && <p className="mt-1 text-descripcion text-ink/70">{hint}</p>}
 
       <form action={action} className="mt-5 space-y-4">
         <input type="hidden" name="key" value={sectionKey} />
@@ -263,7 +259,7 @@ function Panel({
 function Text({ name, label, value }: { name: string; label: string; value: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm text-ink/60">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
       <input name={name} defaultValue={value} className={field} />
     </label>
   )
@@ -284,7 +280,7 @@ function Area({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm text-ink/60">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
       <textarea
         name={name}
         defaultValue={value}
@@ -337,7 +333,7 @@ function Repeat<T>({
         {items.map((item, i) => (
           <li key={i} className="rounded-xl border border-ink/10 p-3">
             <div className="space-y-2">{render(item, (next) => update(i, next))}</div>
-            <div className="mt-2 flex items-center gap-3 text-xs text-ink/45">
+            <div className="mt-2 flex items-center gap-3 text-xs text-ink/60">
               <button type="button" onClick={() => move(i, -1)} disabled={i === 0}>
                 ↑
               </button>
