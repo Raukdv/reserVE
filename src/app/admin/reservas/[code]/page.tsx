@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { publicEnv } from '@/lib/env'
 import { usd, ves, dateLabel } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
-import { BookingActions } from '@/components/booking-actions'
+import { parseAppliedFees } from '@/lib/fees'
+import { BookingActions, type RefundPreview } from '@/components/booking-actions'
 import { CollectionSummary, collectionState } from '@/components/collection-summary'
 import type { BookingStatus, PaymentMethod, PaymentStatus } from '@/types/database'
 
@@ -20,17 +21,17 @@ const PILL: Record<BookingStatus, { label: string; tone: string }> = {
   pending: { label: 'Pendiente de pago', tone: 'bg-amber-100 text-amber-900' },
   confirmed: { label: 'Confirmada', tone: 'bg-moss/15 text-moss' },
   checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
-  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/60' },
-  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/60' },
-  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/60' },
+  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
+  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
+  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
 }
 
 const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: string }> = {
-  pending: { label: 'Pendiente', tone: 'text-ink/45' },
+  pending: { label: 'Pendiente', tone: 'text-ink/60' },
   verifying: { label: 'Por verificar', tone: 'text-amber-700' },
   approved: { label: 'Aprobado', tone: 'text-moss' },
   rejected: { label: 'Rechazado', tone: 'text-red-700' },
-  refunded: { label: 'Reembolsado', tone: 'text-ink/45' },
+  refunded: { label: 'Reembolsado', tone: 'text-ink/60' },
 }
 
 const when = (iso: string) =>
@@ -66,7 +67,7 @@ export default async function BookingDetail({
     .select(`
       code, status, check_in, check_out, nights, guests,
       guest_name, guest_email, guest_phone, guest_document, notes,
-      subtotal_usd, cleaning_fee_usd, discount_usd, total_usd, total_ves,
+      subtotal_usd, fees_usd, fees_breakdown, discount_usd, total_usd, total_ves,
       rate_snapshot, rate_date, deposit_ratio, expires_at, created_at,
       manual_confirmation_reason, cancel_reason,
       units ( name, slug ),
@@ -93,9 +94,20 @@ export default async function BookingDetail({
   const pill = PILL[booking.status]
   const guestUrl = `${publicEnv.NEXT_PUBLIC_SITE_URL}/reserva/${booking.code}`
 
+  // Qué tocaría devolver si se cancelara ahora. Lo calcula la base, la misma
+  // función que ve el huésped en su página: dos implementaciones divergirían.
+  const open = booking.status === 'pending' || booking.status === 'confirmed' ||
+               booking.status === 'checked_in'
+
+  const { data: refundData } = open
+    ? await supabase.rpc('cancellation_quote', { p_code: booking.code })
+    : { data: null }
+
+  const refund = refundData as RefundPreview | null
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
-      <Link href="/admin/calendario" className="text-sm text-ink/50 hover:underline">
+      <Link href="/admin/calendario" className="text-sm text-ink/70 hover:underline">
         ← Calendario
       </Link>
 
@@ -106,7 +118,7 @@ export default async function BookingDetail({
         </span>
       </div>
 
-      <p className="mt-3 text-ink/60">
+      <p className="mt-3 text-ink/70">
         {unit?.name} · {dateLabel(booking.check_in)} → {dateLabel(booking.check_out)} ·{' '}
         {booking.nights} noche{booking.nights > 1 ? 's' : ''} · {booking.guests} huésped
         {booking.guests > 1 ? 'es' : ''}
@@ -125,8 +137,8 @@ export default async function BookingDetail({
         huésped — hay que ponerlo donde el operador lo encuentre.
       */}
       <section className="mt-6 rounded-2xl border border-ink/10 bg-white p-6">
-        <h2 className="text-sm font-medium">Enlace del huésped</h2>
-        <p className="mt-1 text-sm text-ink/55">
+        <h2 className="text-base font-semibold">Enlace del huésped</h2>
+        <p className="mt-1 text-descripcion text-ink/70">
           {booking.guest_email
             ? 'Se le envió por correo. Compártelo también si lo pide.'
             : 'Esta reserva no tiene correo, así que hay que compartirlo a mano.'}
@@ -151,7 +163,7 @@ export default async function BookingDetail({
               Enviar por WhatsApp
             </a>
           )}
-          <a href={guestUrl} target="_blank" rel="noreferrer" className="text-ink/55 underline">
+          <a href={guestUrl} target="_blank" rel="noreferrer" className="text-ink/70 underline">
             Ver como lo ve el huésped
           </a>
         </div>
@@ -159,7 +171,7 @@ export default async function BookingDetail({
 
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <section className="rounded-2xl border border-ink/10 bg-white p-6">
-          <h2 className="text-sm font-medium">Huésped</h2>
+          <h2 className="text-base font-semibold">Huésped</h2>
           <dl className="mt-4 space-y-2 text-sm">
             <Row label="Nombre" value={booking.guest_name} />
             <Row label="Correo" value={booking.guest_email} />
@@ -172,19 +184,29 @@ export default async function BookingDetail({
         </section>
 
         <section className="rounded-2xl border border-ink/10 bg-white p-6">
-          <h2 className="text-sm font-medium">Cobro</h2>
+          <h2 className="text-base font-semibold">Cobro</h2>
 
           <div className="mt-4">
             <CollectionSummary state={collection} />
           </div>
 
           <details className="mt-5 text-sm">
-            <summary className="cursor-pointer text-xs text-ink/45">
+            <summary className="cursor-pointer text-xs text-ink/60">
               Desglose del precio
             </summary>
             <dl className="mt-3 space-y-2">
               <Row label="Alojamiento" value={usd(booking.subtotal_usd)} />
-              <Row label="Limpieza" value={usd(booking.cleaning_fee_usd)} />
+              {/*
+                Cada cargo con su nombre. Antes había una única línea «Limpieza»
+                que en realidad mostraba la suma de todos los cargos.
+              */}
+              {parseAppliedFees(booking.fees_breakdown).map((fee) => (
+                <Row
+                  key={fee.name}
+                  label={fee.kind === 'percent' ? `${fee.name} (${fee.rate} %)` : fee.name}
+                  value={usd(fee.amount_usd)}
+                />
+              ))}
               {booking.discount_usd > 0 && (
                 <Row label="Descuento" value={`−${usd(booking.discount_usd)}`} />
               )}
@@ -200,8 +222,8 @@ export default async function BookingDetail({
       </div>
 
       <section className="mt-5 rounded-2xl border border-ink/10 bg-white p-6">
-        <h2 className="text-sm font-medium">
-          Pagos {payments.length > 0 && <span className="text-ink/45">· {payments.length}</span>}
+        <h2 className="text-base font-semibold">
+          Pagos {payments.length > 0 && <span className="text-ink/60">· {payments.length}</span>}
         </h2>
 
         {payments.length > 0 ? (
@@ -216,7 +238,7 @@ export default async function BookingDetail({
               return (
                 <li key={i} className="flex flex-wrap items-start justify-between gap-3 py-3 text-sm">
                   <span className="min-w-0">
-                    <span className="text-ink/40">{i + 1}.</span>{' '}
+                    <span className="text-ink/60">{i + 1}.</span>{' '}
                     {METHODS[p.method as PaymentMethod].label} ·{' '}
                     <strong className="font-medium">
                       {new Intl.NumberFormat('es-VE', {
@@ -225,9 +247,9 @@ export default async function BookingDetail({
                       }).format(p.amount)}
                     </strong>
                     {p.currency !== 'USD' && (
-                      <span className="text-ink/45"> ≈ {usd(p.amount_usd)}</span>
+                      <span className="text-ink/60"> ≈ {usd(p.amount_usd)}</span>
                     )}
-                    <span className="mt-0.5 block text-xs text-ink/45">
+                    <span className="mt-0.5 block text-xs text-ink/60">
                       {when(p.created_at)}
                       {p.reference && <span className="ml-2 font-mono">{p.reference}</span>}
                     </span>
@@ -238,7 +260,7 @@ export default async function BookingDetail({
             })}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-ink/45">Sin pagos registrados.</p>
+          <p className="mt-4 text-sm text-ink/60">Sin pagos registrados.</p>
         )}
 
         {collection.claimedCount > 0 && (
@@ -258,6 +280,7 @@ export default async function BookingDetail({
         status={booking.status}
         outstandingUsd={suggestedCharge}
         rate={Number(booking.rate_snapshot)}
+        refund={refund}
       />
 
       {booking.manual_confirmation_reason && (
@@ -273,7 +296,7 @@ export default async function BookingDetail({
         </p>
       )}
 
-      <p className="mt-6 text-sm text-ink/50">
+      <p className="mt-6 text-descripcion text-ink/70">
         Marcar entrada y salida todavía no está construido. Los comprobantes que reporta el
         huésped se verifican desde{' '}
         <Link href="/admin/pagos" className="underline">
@@ -296,7 +319,7 @@ function Row({
 }) {
   return (
     <div className="flex justify-between gap-4">
-      <dt className="text-ink/55">{label}</dt>
+      <dt className="text-ink/70">{label}</dt>
       <dd className={strong ? 'font-medium' : ''}>{value || '—'}</dd>
     </div>
   )
