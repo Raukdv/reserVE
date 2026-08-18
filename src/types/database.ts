@@ -181,6 +181,8 @@ export interface Database {
           storage_path: string
           alt_text: string | null
           sort_order: number
+          /** Portada elegida a mano. Sin ninguna, manda el sort_order. Ver 0025. */
+          is_cover: boolean
           created_at: string
         }
         Insert: {
@@ -189,6 +191,7 @@ export interface Database {
           storage_path: string
           alt_text?: string | null
           sort_order?: number
+          is_cover?: boolean
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['unit_media']['Insert']>
@@ -862,6 +865,11 @@ export interface Database {
       }
       staff_confirm_booking: { Args: { p_code: string; p_reason: string }; Returns: Json }
       staff_delete_unit: { Args: { p_unit_id: string }; Returns: Json }
+      staff_set_cover: { Args: { p_media_id: string }; Returns: Json }
+      staff_add_photo: {
+        Args: { p_unit_id: string; p_path: string; p_max?: number }
+        Returns: Json
+      }
       staff_delete_amenity: {
         Args: { p_id: string; p_force?: boolean }
         Returns: Json
