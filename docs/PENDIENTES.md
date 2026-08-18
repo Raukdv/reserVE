@@ -290,6 +290,108 @@ Ver `docs/funciones/calendario-y-bloqueos.md`.
 
 ---
 
+## Bloquear fechas desde el móvil
+
+El arrastre sobre la rejilla es **solo de ratón**: se apoya en `mousedown`,
+`mouseenter` y `mouseup`. En una pantalla táctil no hay `mouseenter`, y arrastrar
+el dedo sobre una zona que además hace scroll horizontal pelea con el gesto del
+navegador. Hoy en móvil solo queda el formulario de fechas de siempre.
+
+### Cómo se resuelve: dos toques, no arrastre
+
+Un botón que entra en **modo selección**, y dentro de ese modo:
+
+1. Toque en una casilla libre → marca el inicio.
+2. Toque en otra → marca el fin y abre la confirmación de siempre.
+
+Un tercer toque antes de confirmar mueve el extremo en lugar de empezar de cero:
+con el dedo se falla la casilla más de lo que se cree, y obligar a reiniciar la
+selección por un día de diferencia es lo que hace abandonar.
+
+### Por qué así y no imitando el arrastre
+
+Reproducir el arrastre con `touchmove` obliga a `preventDefault` sobre el
+contenedor, y eso mata el scroll horizontal — que en una rejilla de 45 días es
+justo lo que hace falta para llegar a la fecha. Dos toques discretos conviven con
+el scroll sin pelearse.
+
+Además el modo explícito evita el problema contrario: en táctil no hay diferencia
+entre «toco para seleccionar» y «toco para abrir la reserva», y sin un modo que
+lo separe cualquier toque sería ambiguo.
+
+### Al implementarlo
+
+- El estado de selección ya existe en `CalendarGrid` (`drag` con `a` y `b`); lo
+  que cambia es cómo se alimenta, no lo que produce. La confirmación y la acción
+  de bloqueo se reutilizan tal cual.
+- El botón de modo solo tiene sentido donde no hay puntero fino. Se puede mostrar
+  siempre —no estorba en escritorio y da una alternativa por si el arrastre se
+  atasca— o condicionarlo a `(pointer: coarse)`.
+- Marcar visualmente el extremo ya elegido mientras se espera el segundo toque:
+  sin eso el modo selección no se distingue del normal.
+- Salir del modo con el mismo botón, y también al confirmar o cancelar.
+
+Esto tampoco cubre el teclado, que sigue sin equivalente.
+
+---
+
+## Separar los impuestos de los ingresos
+
+**Bloquea la sección de ganancias.** Ver la observación 4 de `DISENO.md`.
+
+El IVA no es del negocio. Se cobra al huésped, se recauda por cuenta del fisco y
+se entera — igual que el IGTF. Contarlo como ingreso infla la cifra en la
+proporción exacta del tipo impositivo.
+
+### El problema
+
+La tabla `fees` no tiene forma de decirlo. Un cargo `percent` llamado «IVA» y
+otro llamado «Recargo de temporada alta» son indistinguibles para el código:
+
+```sql
+kind = 'percent'   -- ¿tributo que enteras, o recargo que te quedas?
+```
+
+El segundo sí es ingreso. El primero no. Y cualquier gráfica que sume
+`total_usd` o `fees_usd` los mete en el mismo saco.
+
+El IGTF no tiene este problema porque nunca fue un cargo: vive en
+`payments.igtf_usd` y ya está fuera de `amount_usd` desde la migración `0024`.
+El IVA sí es un cargo, y ahí se mezcla.
+
+### Qué hay que decidir
+
+**1. Cómo se marca.** Una columna `fees.is_tax boolean`, o equivalente. No sirve
+reutilizar `refundable`: son cosas distintas y un impuesto **sí** se devuelve al
+huésped si se le devuelve la estadía, que es como funciona hoy.
+
+**2. Qué pasa con lo ya cobrado.** El desglose está congelado en
+`bookings.fees_breakdown` sin esa marca. O se migran las filas existentes
+mirando el `id` del cargo, o la cifra histórica queda sin separar y se dice.
+
+**3. Cómo se muestra.** Tres caminos, y conviene elegir antes de dibujar:
+
+- **No mostrarlo.** La gráfica enseña solo el ingreso neto. Honesto y simple,
+  pero el operador pierde de vista un dinero que **tiene que declarar y pagar**.
+- **Como banda restada** dentro de la barra del mes. Se ve de dónde sale la
+  diferencia, pero la barra deja de leerse de un vistazo, que era el objetivo.
+- **Como cifra aparte** — «impuestos recaudados este mes» —, con la gráfica
+  mostrando solo lo neto.
+
+Lo tercero es lo que recomendaría: la barra dice lo que ganaste, y al lado está
+lo que debes enterar. Son dos preguntas distintas y mezclarlas en una forma hace
+que ninguna se responda bien.
+
+### Lo que no cambia
+
+Nada del cobro ni del reembolso. Al huésped se le sigue cobrando lo mismo, el
+anticipo se sigue calculando sobre el total con impuestos —ver el artículo 13 de
+la Ley del IVA en `cobro-y-verificacion.md`— y las devoluciones siguen
+devolviendo la parte proporcional del impuesto. Esto es solo **cómo se cuenta**,
+no cómo se cobra.
+
+---
+
 ## Medir cuánto pesan de verdad las fotos
 
 Los topes de `src/lib/media-limits.ts` —400 KB por foto, 40 por unidad— salen de

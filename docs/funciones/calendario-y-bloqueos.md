@@ -171,8 +171,13 @@ equivocada.
 
 ## Lo que no cubre
 
-**El arrastre es solo de ratón.** No hay equivalente por teclado ni táctil; en
-móvil sigue estando el formulario de fechas de siempre.
+**El arrastre es solo de ratón.** Se apoya en `mousedown`, `mouseenter` y
+`mouseup`, que en táctil no existen. En móvil queda el formulario de fechas de
+siempre. La salida acordada es un modo de selección por toques —uno marca el
+inicio, otro el fin— en lugar de imitar el arrastre, que obligaría a matar el
+scroll horizontal de la rejilla. Ver `PENDIENTES.md`.
+
+Tampoco hay equivalente por teclado.
 
 **Acortar una estadía no existe.** Alargar sí —`staff_extend_stay()`— pero
 recortar implica devolver dinero y pasa por la política de cancelación, así que

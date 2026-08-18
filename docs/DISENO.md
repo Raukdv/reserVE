@@ -374,6 +374,70 @@ pinta un punto de color para todas por igual. O se usan de verdad, o sobra la
 columna — hoy es un dato que promete algo que no cumple, como pasaba con
 `BUSINESS_TIMEZONE`.
 
+### 4. No hay dónde ver lo que el negocio ha generado
+
+**Dónde:** falta la sección. Hoy lo más parecido es el resumen de `/admin`.
+
+El panel enseña cifras sueltas —pagos por verificar, reservas pendientes,
+confirmadas, tasa— y ninguna serie. El operador no tiene dónde mirar **cuánto ha
+entrado este mes**, ni compararlo con el anterior, ni ver por dónde entró.
+
+Debería haber una sección de **ganancias** con gráficas directas: lo generado en
+el mes, de un vistazo.
+
+#### La distinción que hay que resolver antes de dibujar nada
+
+«Ganancias» no es «lo que pasó por la cuenta». Con el modelo actual hay cuatro
+cosas distintas y confundirlas produce un gráfico que miente:
+
+| Concepto | Qué es | De dónde sale |
+|---|---|---|
+| **Cobrado** | Todo lo que entró | `payments` aprobados |
+| **IGTF** | **No es ingreso.** Se entera al SENIAT | `payments.igtf_usd` |
+| **Devuelto** | Sale de la cuenta | `payments` con `kind = 'refund'` |
+| **Ingreso real** | Cobrado − IGTF − devuelto | la resta de los tres |
+
+`amount_usd` ya viene **neto de IGTF** desde la migración `0024`, así que sumarlo
+da lo que de verdad es del negocio. Lo que falta restar son las devoluciones, que
+desde la `0023` están registradas y hasta entonces no existían.
+
+Ojo también con los cargos: la limpieza y las tasas turísticas **sí** son ingreso;
+el IVA **no** — se cobra al huésped y se entera al fisco, igual que el IGTF. La
+diferencia es que el IGTF ya vive fuera (`payments.igtf_usd`) y el IVA es un
+cargo más, indistinguible de un recargo que sí te quedas.
+
+**Eso bloquea esta sección** y tiene su propia entrada en `PENDIENTES.md`:
+«Separar los impuestos de los ingresos». Sin resolverlo, cualquier gráfica infla
+la cifra en la proporción exacta del tipo impositivo.
+
+#### Qué forma tiene cada cosa
+
+Anotado tras revisar la referencia de Amicro que motivó esto:
+
+- **Ingreso por mes** → barras. Comparar doce valores es lo que peor hace un
+  donut y lo que mejor hace una barra.
+- **Ocupación del mes** → donut de dos segmentos, con el porcentaje al centro.
+  Es parte de un todo y son dos valores: justo donde el donut gana.
+- **Por dónde entró el dinero** → barras horizontales. Con seis canales de pago,
+  comparar arcos es adivinar.
+- **Reservas por estado** → nada. Ya lo dicen las píldoras de color sin gráfico.
+
+#### Al implementarlo
+
+- **Sin librería de gráficos.** Un donut es un `<circle>` con `stroke-dasharray`,
+  `stroke-linecap="round"` para los extremos y un hueco restado a cada arco; unas
+  ciento cincuenta líneas de SVG. Las barras, menos. Meter Motion o una librería
+  de charts por esto es pagar decenas de KB en el teléfono del huésped para algo
+  que solo ve el operador.
+- **Falta paleta de series.** Hay cinco tokens y ninguno pensado para distinguir
+  categorías vecinas en un gráfico. La referencia lo resuelve con grises sobre
+  negro; sobre nuestra arena eso no funciona. Decidir la escala antes de dibujar.
+- **Cargar antes la guía de visualización del proyecto**, que fija paleta de
+  series y contraste. Es lo que evita inventar una escala que luego choque con
+  `DISENO.md`.
+- **Ojo con el tope de CPU.** Agregar por mes en el servidor y no traer todas las
+  filas para sumarlas en el navegador. Ver `COSTO-CERO.md`.
+
 ---
 
 ## Lo que este inventario deja a la vista
