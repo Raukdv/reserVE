@@ -107,6 +107,6 @@ export const providerStatusLabel: Record<ProviderStatus, string> = {
 
 export const providerStatusTone: Record<ProviderStatus, string> = {
   active: 'bg-moss/15 text-moss',
-  needs_contract: 'bg-ink/8 text-ink/55',
+  needs_contract: 'bg-ink/8 text-ink/70',
   needs_keys: 'bg-amber-100 text-amber-900',
 }

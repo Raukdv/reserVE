@@ -49,7 +49,7 @@ export function DocumentInput({
 
   return (
     <label className="block">
-      <span className="mb-1 block text-sm text-ink/60">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
 
       <div className="flex gap-2">
         <select
@@ -85,7 +85,7 @@ export function DocumentInput({
       {showError ? (
         <span className="mt-1 block text-xs text-red-700">{error}</span>
       ) : (
-        <span className="mt-1 block text-xs text-ink/45">
+        <span className="mt-1 block text-xs text-ink/60">
           {hint ?? DOCUMENT_TYPES.find((t) => t.value === type)?.label}
         </span>
       )}

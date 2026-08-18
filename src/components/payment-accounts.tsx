@@ -25,8 +25,8 @@ export function PaymentAccounts({ accounts }: { accounts: Account[] }) {
     <section>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-sm font-medium">Cuentas de cobro</h2>
-          <p className="mt-1 text-sm text-ink/50">
+          <h2 className="text-base font-semibold">Cuentas de cobro</h2>
+          <p className="mt-1 text-descripcion text-ink/70">
             Es lo que el huésped ve cuando va a pagar. Cada una lleva el dato exacto al que
             debe enviar el dinero.
           </p>
@@ -61,7 +61,7 @@ export function PaymentAccounts({ accounts }: { accounts: Account[] }) {
       </ul>
 
       {accounts.length === 0 && !adding && (
-        <p className="mt-4 rounded-2xl border border-dashed border-ink/20 p-10 text-center text-sm text-ink/50">
+        <p className="mt-4 rounded-2xl border border-dashed border-ink/20 p-10 text-center text-sm text-ink/70">
           Todavía no has cargado ninguna cuenta.
         </p>
       )}
@@ -84,18 +84,18 @@ function AccountRow({ account }: { account: Account }) {
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{account.label}</span>
-            <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] text-ink/55">
+            <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] text-ink/70">
               {spec.label} · {spec.currency}
             </span>
             {!account.is_active && (
-              <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] text-ink/45">
+              <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] text-ink/60">
                 Oculta
               </span>
             )}
           </p>
           <p className="mt-1 font-mono text-sm text-ink/70">{account.identifier}</p>
           {(account.holder || account.bank) && (
-            <p className="mt-0.5 text-xs text-ink/45">
+            <p className="mt-0.5 text-xs text-ink/60">
               {[account.holder, account.document, account.bank].filter(Boolean).join(' · ')}
             </p>
           )}
@@ -108,7 +108,7 @@ function AccountRow({ account }: { account: Account }) {
           <button
             type="button"
             onClick={() => setEditing((v) => !v)}
-            className="text-ink/55 underline hover:text-ink"
+            className="text-ink/70 underline hover:text-ink"
           >
             {editing ? 'Cerrar' : 'Editar'}
           </button>
@@ -116,7 +116,7 @@ function AccountRow({ account }: { account: Account }) {
             <input type="hidden" name="id" value={account.id} />
             <button
               disabled={removing}
-              className="text-ink/40 underline hover:text-red-700 disabled:opacity-50"
+              className="text-ink/60 underline hover:text-red-700 disabled:opacity-50"
             >
               {removing ? 'Eliminando…' : 'Eliminar'}
             </button>
@@ -151,7 +151,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Canal</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Canal</span>
           <select
             name="method"
             value={method}
@@ -167,7 +167,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Nombre visible</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Nombre visible</span>
           <input
             name="label"
             required
@@ -178,7 +178,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
         </label>
 
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-xs text-ink/50">
+          <span className="mb-1 block text-xs font-medium text-ink">
             Dato al que se paga — {spec.originLabel.toLowerCase()}
           </span>
           <input
@@ -191,7 +191,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Titular</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Titular</span>
           <input name="holder" defaultValue={account?.holder ?? ''} className={field} />
         </label>
 
@@ -204,7 +204,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
         />
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Banco</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Banco</span>
           <input
             name="bank"
             defaultValue={account?.bank ?? ''}
@@ -214,7 +214,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Orden</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Orden</span>
           <input
             name="sortOrder"
             type="number"
@@ -226,7 +226,7 @@ function AccountForm({ account, onDone }: { account?: Account; onDone: () => voi
         </label>
 
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-xs text-ink/50">Instrucciones</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Instrucciones</span>
           <input
             name="instructions"
             defaultValue={account?.instructions ?? ''}

@@ -20,9 +20,9 @@ const STATUS: Record<BookingStatus, { label: string; tone: string }> = {
   pending: { label: 'Pendiente', tone: 'bg-amber-100 text-amber-900' },
   confirmed: { label: 'Confirmada', tone: 'bg-moss/15 text-moss' },
   checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
-  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/60' },
-  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/60' },
-  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/60' },
+  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
+  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
+  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
 }
 
 const field =
@@ -106,7 +106,7 @@ export default async function BookingsPage({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Reservas</h1>
-          <p className="mt-1 text-sm text-ink/50">
+          <p className="mt-1 text-descripcion text-ink/70">
             {total} {total === 1 ? 'reserva' : 'reservas'}
             {filtered ? ' con estos filtros' : ' en total'}
           </p>
@@ -129,7 +129,7 @@ export default async function BookingsPage({
         className="mt-6 grid gap-3 rounded-2xl border border-ink/10 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
       >
         <label className="block lg:col-span-2">
-          <span className="mb-1 block text-xs text-ink/50">Buscar</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Buscar</span>
           <input
             name="q"
             defaultValue={q ?? ''}
@@ -139,7 +139,7 @@ export default async function BookingsPage({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Estado</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Estado</span>
           <select name="estado" defaultValue={estado ?? ''} className={field}>
             <option value="">Todos</option>
             {Object.entries(STATUS).map(([value, { label }]) => (
@@ -151,7 +151,7 @@ export default async function BookingsPage({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Unidad</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Unidad</span>
           <select name="unidad" defaultValue={unidad ?? ''} className={field}>
             <option value="">Todas</option>
             {(units ?? []).map((u) => (
@@ -163,12 +163,12 @@ export default async function BookingsPage({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Entra desde</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Entra desde</span>
           <input name="desde" type="date" defaultValue={desde ?? ''} className={field} />
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Sale antes de</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Sale antes de</span>
           <input name="hasta" type="date" defaultValue={hasta ?? ''} className={field} />
         </label>
 
@@ -177,7 +177,7 @@ export default async function BookingsPage({
             Filtrar
           </button>
           {filtered && (
-            <Link href="/admin/reservas" className="text-sm text-ink/50 hover:underline">
+            <Link href="/admin/reservas" className="text-sm text-ink/70 hover:underline">
               Limpiar
             </Link>
           )}
@@ -189,7 +189,7 @@ export default async function BookingsPage({
           <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
             <table className="w-full min-w-max text-sm">
               <thead>
-                <tr className="border-b border-ink/10 text-left text-xs text-ink/45">
+                <tr className="border-b border-ink/10 text-left text-xs text-ink/60">
                   <th className="px-5 py-3 font-normal">Código</th>
                   <th className="px-5 py-3 font-normal">Huésped</th>
                   <th className="px-5 py-3 font-normal">Unidad</th>
@@ -219,14 +219,14 @@ export default async function BookingsPage({
                       </td>
                       <td className="px-5 py-3">
                         {b.guest_name}
-                        <span className="mt-0.5 block text-xs text-ink/45">
+                        <span className="mt-0.5 block text-xs text-ink/60">
                           {b.guest_email}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-ink/60">{unit?.name ?? '—'}</td>
-                      <td className="px-5 py-3 text-ink/60">
+                      <td className="px-5 py-3 text-ink/70">{unit?.name ?? '—'}</td>
+                      <td className="px-5 py-3 text-ink/70">
                         {dateLabel(b.check_in)} → {dateLabel(b.check_out)}
-                        <span className="mt-0.5 block text-xs text-ink/40">
+                        <span className="mt-0.5 block text-xs text-ink/60">
                           {b.nights} noche{b.nights > 1 ? 's' : ''} · {b.guests} huésped
                           {b.guests > 1 ? 'es' : ''}
                         </span>
@@ -246,7 +246,7 @@ export default async function BookingsPage({
 
           {pages > 1 && (
             <div className="mt-5 flex items-center justify-between text-sm">
-              <span className="text-ink/50">
+              <span className="text-ink/70">
                 Página {page} de {pages}
               </span>
               <div className="flex gap-2">
@@ -271,7 +271,7 @@ export default async function BookingsPage({
           )}
         </>
       ) : (
-        <p className="mt-6 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+        <p className="mt-6 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
           {filtered
             ? 'Ninguna reserva coincide con esos filtros.'
             : 'Todavía no hay reservas.'}

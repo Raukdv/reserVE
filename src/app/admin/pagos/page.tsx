@@ -75,7 +75,7 @@ export default async function PaymentsPage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Pagos por verificar</h1>
-      <p className="mt-1 text-sm text-ink/55">
+      <p className="mt-1 text-descripcion text-ink/70">
         Contrasta cada comprobante contra tu cuenta antes de aprobar. Aprobar un pago que
         cubra el anticipo confirma la reserva automáticamente.
       </p>
@@ -87,7 +87,7 @@ export default async function PaymentsPage() {
           ))}
         </div>
       ) : (
-        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
           No hay pagos pendientes de verificación.
         </p>
       )}

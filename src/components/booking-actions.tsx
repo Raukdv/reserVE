@@ -28,24 +28,38 @@ const STAFF_METHODS: PaymentMethod[] = [
   'tarjeta',
 ]
 
+export type RefundPreview = {
+  paid_usd: number
+  entitlement_usd: number
+  refund_usd: number
+  kind: 'percent' | 'nights' | 'none'
+  refund_percent: number | null
+  forfeit_nights: number | null
+  forfeited_usd: number | null
+  cleaning_refunded: boolean
+}
+
 export function BookingActions({
   code,
   status,
   outstandingUsd,
   rate,
+  refund,
 }: {
   code: string
   status: string
   /** Lo que falta para cubrir el anticipo, en USD. */
   outstandingUsd: number
   rate: number
+  /** Qué tocaría devolver si se cancelara ahora, según la política. */
+  refund?: RefundPreview | null
 }) {
   const open = status === 'pending' || status === 'confirmed' || status === 'checked_in'
   if (!open) return null
 
   return (
     <section className="mt-5 rounded-2xl border border-ink/10 bg-white p-6">
-      <h2 className="text-sm font-medium">Acciones</h2>
+      <h2 className="text-base font-semibold">Acciones</h2>
 
       <div className="mt-5 space-y-5">
         {/* La estadía manda: si el huésped está llegando o saliendo, eso es lo
@@ -55,7 +69,7 @@ export function BookingActions({
 
         <RecordPayment code={code} suggested={outstandingUsd} rate={rate} />
         {status === 'pending' && <ConfirmWithoutPayment code={code} />}
-        <Cancel code={code} />
+        <Cancel code={code} refund={refund} />
       </div>
     </section>
   )
@@ -89,7 +103,7 @@ function StayStep({ code, step }: { code: string; step: 'in' | 'out' }) {
         {state.ok && <span className="text-sm text-moss">{state.ok}</span>}
       </form>
 
-      <p className="mt-2 text-xs text-ink/50">
+      <p className="mt-2 text-xs text-ink/70">
         {step === 'in'
           ? 'El huésped llegó y la estadía está en curso.'
           : 'Cierra la estadía. Antes comprueba que no quede saldo por cobrar.'}
@@ -145,7 +159,7 @@ function RecordPayment({
       >
         {open ? 'Cerrar' : 'Registrar cobro recibido'}
       </button>
-      <p className="mt-2 text-xs text-ink/50">
+      <p className="mt-2 text-xs text-ink/70">
         Para dinero que entró fuera de la app: efectivo, una transferencia que ya viste en
         tu cuenta, o una reserva cerrada por teléfono.
       </p>
@@ -156,7 +170,7 @@ function RecordPayment({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Canal</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Canal</span>
               <select
                 name="method"
                 value={method}
@@ -172,7 +186,7 @@ function RecordPayment({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">
+              <span className="mb-1 block text-xs font-medium text-ink">
                 Monto ({spec.currency})
               </span>
               <input
@@ -188,12 +202,12 @@ function RecordPayment({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Referencia</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Referencia</span>
               <input name="reference" className={field} />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Nota interna</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Nota interna</span>
               <input name="notes" className={field} />
             </label>
           </div>
@@ -227,11 +241,11 @@ function ConfirmWithoutPayment({ code }: { code: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-sm text-ink/60 underline hover:text-ink"
+        className="text-sm text-ink/70 underline hover:text-ink"
       >
         {open ? 'Cerrar' : 'Confirmar sin cobro'}
       </button>
-      <p className="mt-2 text-xs text-ink/50">
+      <p className="mt-2 text-xs text-ink/70">
         Cortesía, acuerdo especial, o dinero que llegará después. Queda registrado quién lo
         hizo y por qué.
       </p>
@@ -261,25 +275,68 @@ function ConfirmWithoutPayment({ code }: { code: string }) {
   )
 }
 
-function Cancel({ code }: { code: string }) {
+function Cancel({ code, refund }: { code: string; refund?: RefundPreview | null }) {
   const [state, action, pending] = useActionState<BookingActionState, FormData>(
     cancelBooking,
     {},
   )
   const [open, setOpen] = useState(false)
 
+  const money = (value: number) =>
+    new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD' }).format(value)
+
   return (
     <div className="border-t border-ink/10 pt-5">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-sm text-ink/45 underline hover:text-red-700"
+        className="text-sm text-ink/60 underline hover:text-red-700"
       >
         {open ? 'Cerrar' : 'Cancelar reserva'}
       </button>
-      <p className="mt-2 text-xs text-ink/50">
+      <p className="mt-2 text-xs text-ink/70">
         Libera las fechas. La reserva y sus pagos se conservan con el motivo.
       </p>
+
+      {/*
+        Cuánto habría que devolver, según la política y la fecha de hoy. Sin esto
+        el operador cancela a ciegas y tiene que calcularlo a mano justo cuando
+        más prisa tiene.
+      */}
+      {open && refund && refund.paid_usd > 0 && (
+        <div className="mt-3 rounded-xl bg-sand p-4 text-sm">
+          <p>
+            Según la política, corresponde devolver{' '}
+            <strong className="font-medium">
+              {refund.refund_usd > 0 ? money(refund.refund_usd) : 'nada'}
+            </strong>{' '}
+            de {money(refund.paid_usd)} cobrados.
+          </p>
+
+          <p className="mt-1.5 text-xs text-ink/70">
+            {refund.kind === 'nights' && refund.forfeit_nights ? (
+              <>
+                Retienes {refund.forfeit_nights} noche
+                {refund.forfeit_nights === 1 ? '' : 's'}
+                {refund.forfeited_usd ? ` (${money(refund.forfeited_usd)})` : ''} más los
+                cargos no reembolsables.
+              </>
+            ) : refund.kind === 'percent' ? (
+              <>
+                Tramo del {refund.refund_percent} % del alojamiento
+                {refund.cleaning_refunded ? ', limpieza incluida' : ', sin la limpieza'}.
+              </>
+            ) : (
+              <>Fuera de todo tramo: la política no obliga a devolver nada.</>
+            )}
+          </p>
+
+          <p className="mt-2 text-xs text-ink/60">
+            El reembolso se hace por fuera de la app, por el mismo canal del cobro. Aquí
+            solo se libera la reserva.
+          </p>
+        </div>
+      )}
 
       {open && (
         <form action={action} className="mt-3 flex flex-wrap gap-2">

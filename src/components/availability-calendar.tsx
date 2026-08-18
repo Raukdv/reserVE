@@ -50,7 +50,7 @@ function Month({ year, month, occupied }: { year: number; month: number; occupie
 
       <div className="grid grid-cols-7 gap-1 text-center text-[11px]">
         {WEEKDAYS.map((d, i) => (
-          <span key={i} className="py-1 text-ink/35">{d}</span>
+          <span key={i} className="py-1 text-ink/60">{d}</span>
         ))}
 
         {Array.from({ length: leading }, (_, i) => <span key={`pad-${i}`} />)}
@@ -67,9 +67,9 @@ function Month({ year, month, occupied }: { year: number; month: number; occupie
               className={[
                 'rounded-md py-1.5',
                 past
-                  ? 'text-ink/20'
+                  ? 'text-ink/60'
                   : busy
-                    ? 'bg-ink/15 text-ink/40 line-through'
+                    ? 'bg-ink/15 text-ink/60 line-through'
                     : 'bg-white text-ink',
               ].join(' ')}
             >

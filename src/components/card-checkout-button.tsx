@@ -28,7 +28,7 @@ export function CardCheckoutButton({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="font-medium">Pagar con tarjeta</p>
-          <p className="mt-1 text-sm text-ink/55">
+          <p className="mt-1 text-descripcion text-ink/70">
             Visa, Mastercard o American Express internacionales. Se cobra en dólares y la
             reserva se confirma sola.
           </p>
@@ -59,7 +59,7 @@ export function CardCheckoutButton({
         </p>
       )}
 
-      <p className="mt-4 text-xs text-ink/45">
+      <p className="mt-4 text-xs text-ink/60">
         El pago se procesa en Stripe. Los datos de tu tarjeta no pasan por este sitio.
       </p>
     </div>

@@ -47,8 +47,8 @@ function UnitPanel({ unit, others }: { unit: UnitRates; others: UnitRates[] }) {
     <section className="rounded-2xl border border-ink/10 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-medium">{unit.name}</h2>
-          <p className="mt-1 text-sm text-ink/55">
+          <h2 className="text-base font-semibold">{unit.name}</h2>
+          <p className="mt-1 text-descripcion text-ink/70">
             Tarifa base {usd(unit.basePriceUsd)} / noche · mínimo {unit.minNights} noche
             {unit.minNights > 1 ? 's' : ''}
           </p>
@@ -78,19 +78,19 @@ function UnitPanel({ unit, others }: { unit: UnitRates; others: UnitRates[] }) {
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span>
                   <strong className="font-medium">{season.name}</strong>
-                  <span className="ml-2 text-ink/55">
+                  <span className="ml-2 text-ink/70">
                     {dateLabel(season.from)} — {dateLabel(season.to)}
                   </span>
                 </span>
                 <span className="flex items-center gap-4">
                   <span className="font-medium">{usd(season.priceUsd)}</span>
                   {season.minNights && (
-                    <span className="text-xs text-ink/45">mín. {season.minNights}</span>
+                    <span className="text-xs text-ink/60">mín. {season.minNights}</span>
                   )}
                   <button
                     type="button"
                     onClick={() => setEditing(editing === season.id ? null : season.id)}
-                    className="text-ink/55 underline"
+                    className="text-ink/70 underline"
                   >
                     {editing === season.id ? 'Cerrar' : 'Editar'}
                   </button>
@@ -111,7 +111,7 @@ function UnitPanel({ unit, others }: { unit: UnitRates; others: UnitRates[] }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-ink/45">
+        <p className="mt-4 text-sm text-ink/60">
           Sin temporadas. Se cobra siempre la tarifa base.
         </p>
       )}
@@ -144,7 +144,7 @@ function SeasonForm({
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="block lg:col-span-2">
-          <span className="mb-1 block text-xs text-ink/50">Nombre</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Nombre</span>
           <input
             name="name"
             required
@@ -155,7 +155,7 @@ function SeasonForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Desde</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Desde</span>
           <input
             name="from"
             type="date"
@@ -167,7 +167,7 @@ function SeasonForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Hasta</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Hasta</span>
           <input
             name="to"
             type="date"
@@ -179,7 +179,7 @@ function SeasonForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Precio / noche</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Precio / noche</span>
           <input
             name="price"
             type="number"
@@ -192,7 +192,7 @@ function SeasonForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs text-ink/50">Mínimo de noches</span>
+          <span className="mb-1 block text-xs font-medium text-ink">Mínimo de noches</span>
           <input
             name="minNights"
             type="number"
@@ -200,11 +200,11 @@ function SeasonForm({
             defaultValue={season?.minNights ?? 0}
             className={field}
           />
-          <span className="mt-1 block text-xs text-ink/45">0 = el de la unidad</span>
+          <span className="mt-1 block text-xs text-ink/60">0 = el de la unidad</span>
         </label>
       </div>
 
-      <p className="text-xs text-ink/45">
+      <p className="text-xs text-ink/60">
         La noche de fin no se incluye: del 15 de diciembre al 8 de enero cubre hasta la
         noche del 7.
       </p>
@@ -229,7 +229,7 @@ function DeleteSeason({ id }: { id: string }) {
       <input type="hidden" name="id" value={id} />
       <button
         disabled={pending}
-        className="text-ink/40 underline hover:text-red-700 disabled:opacity-50"
+        className="text-ink/60 underline hover:text-red-700 disabled:opacity-50"
       >
         {pending ? '…' : 'Borrar'}
       </button>
@@ -253,7 +253,7 @@ function CopySeasons({ sourceId, others }: { sourceId: string; others: UnitRates
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-sm text-ink/55 underline hover:text-ink"
+        className="text-sm text-ink/70 underline hover:text-ink"
       >
         {open ? 'Cerrar' : 'Copiar estas temporadas a otras unidades'}
       </button>
@@ -269,7 +269,7 @@ function CopySeasons({ sourceId, others }: { sourceId: string; others: UnitRates
               </label>
             ))}
           </div>
-          <p className="text-xs text-ink/45">
+          <p className="text-xs text-ink/60">
             Se copian con el mismo precio; ajústalo después en cada unidad. Las que se
             solapen con temporadas ya existentes se saltan.
           </p>

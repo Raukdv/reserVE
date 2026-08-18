@@ -23,10 +23,10 @@ export function AdminPlaceholder({
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 text-ink/60">{description}</p>
+      <p className="mt-2 text-ink/70">{description}</p>
 
       <div className="mt-8 rounded-2xl border border-dashed border-ink/20 p-8">
-        <p className="text-xs font-medium uppercase tracking-wider text-ink/45">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink/60">
           Todavía sin construir
         </p>
         <ul className="mt-4 space-y-2 text-sm text-ink/70">
@@ -39,7 +39,7 @@ export function AdminPlaceholder({
         </ul>
 
         {meanwhile && (
-          <p className="mt-6 text-sm text-ink/55">
+          <p className="mt-6 text-descripcion text-ink/70">
             Mientras tanto:{' '}
             <Link href={meanwhile.href} className="underline">
               {meanwhile.label}

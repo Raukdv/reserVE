@@ -62,7 +62,7 @@ export function PaymentReportForm({
     return (
       <div className="rounded-2xl border border-moss/40 bg-moss/5 p-6">
         <p className="font-medium text-moss">{state.ok}</p>
-        <p className="mt-2 text-sm text-ink/60">
+        <p className="mt-2 text-descripcion text-ink/70">
           Verificamos los pagos manualmente, normalmente el mismo día.
         </p>
       </div>
@@ -74,7 +74,7 @@ export function PaymentReportForm({
       <input type="hidden" name="code" value={code} />
 
       <label className="block">
-        <span className="mb-1 block text-sm text-ink/60">¿Por dónde pagaste?</span>
+        <span className="mb-1 block text-sm font-medium text-ink">¿Por dónde pagaste?</span>
         <select
           name="method"
           value={method}
@@ -91,7 +91,7 @@ export function PaymentReportForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">
+          <span className="mb-1 block text-sm font-medium text-ink">
             Monto pagado ({spec.currency})
           </span>
           <input
@@ -107,17 +107,17 @@ export function PaymentReportForm({
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">Fecha y hora del pago</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Fecha y hora del pago</span>
           <input name="paidAt" type="datetime-local" required className={field} />
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">{spec.originLabel}</span>
+          <span className="mb-1 block text-sm font-medium text-ink">{spec.originLabel}</span>
           <input name="origin" placeholder={spec.originPlaceholder} className={field} />
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">{spec.referenceLabel}</span>
+          <span className="mb-1 block text-sm font-medium text-ink">{spec.referenceLabel}</span>
           <input
             name="reference"
             required
@@ -129,7 +129,7 @@ export function PaymentReportForm({
         {spec.needsPayer && (
           <>
             <label className="block">
-              <span className="mb-1 block text-sm text-ink/60">Titular que paga</span>
+              <span className="mb-1 block text-sm font-medium text-ink">Titular que paga</span>
               <input name="payerName" className={field} />
             </label>
             <DocumentInput name="payerDocument" label="Documento del titular" />
@@ -138,7 +138,7 @@ export function PaymentReportForm({
       </div>
 
       <label className="block">
-        <span className="mb-1 block text-sm text-ink/60">Captura del pago</span>
+        <span className="mb-1 block text-sm font-medium text-ink">Captura del pago</span>
         <input
           name="receipt"
           type="file"
@@ -147,9 +147,9 @@ export function PaymentReportForm({
           onChange={onPick}
           className="w-full rounded-xl border border-dashed border-ink/25 bg-white px-3 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-ink/8 file:px-3 file:py-1.5 file:text-sm"
         />
-        {working && <span className="mt-1 block text-xs text-ink/45">Optimizando…</span>}
+        {working && <span className="mt-1 block text-xs text-ink/60">Optimizando…</span>}
         {receipt && original !== null && !working && (
-          <span className="mt-1 block text-xs text-ink/45">
+          <span className="mt-1 block text-xs text-ink/60">
             {original === receipt.size
               ? kb(receipt.size)
               : `${kb(original)} → ${kb(receipt.size)} tras optimizar`}

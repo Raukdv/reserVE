@@ -44,13 +44,13 @@ export function SiteFooter({
       <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 sm:grid-cols-3">
         <div>
           <p className="font-semibold">{businessName}</p>
-          {email && <p className="mt-2 text-sm text-ink/60">{email}</p>}
-          {phone && <p className="text-sm text-ink/60">{phone}</p>}
+          {email && <p className="mt-2 text-descripcion text-ink/70">{email}</p>}
+          {phone && <p className="text-sm text-ink/70">{phone}</p>}
         </div>
 
         <div className="text-sm">
           <p className="font-medium">Reservas</p>
-          <ul className="mt-2 space-y-1 text-ink/60">
+          <ul className="mt-2 space-y-1 text-ink/70">
             <li><Link href="/alojamientos" className="hover:underline">Ver disponibilidad</Link></li>
             <li><Link href="/#faq" className="hover:underline">Preguntas frecuentes</Link></li>
           </ul>
@@ -58,7 +58,7 @@ export function SiteFooter({
 
         <div className="text-sm">
           <p className="font-medium">Legal</p>
-          <ul className="mt-2 space-y-1 text-ink/60">
+          <ul className="mt-2 space-y-1 text-ink/70">
             <li><Link href="/legal/condiciones" className="hover:underline">Condiciones</Link></li>
             <li><Link href="/legal/cancelacion" className="hover:underline">Cancelación</Link></li>
             <li><Link href="/legal/privacidad" className="hover:underline">Privacidad</Link></li>
@@ -67,7 +67,7 @@ export function SiteFooter({
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pb-10 text-xs text-ink/40">
+      <div className="mx-auto max-w-6xl px-6 pb-10 text-xs text-ink/60">
         © {new Date().getFullYear()} {businessName}
       </div>
     </footer>

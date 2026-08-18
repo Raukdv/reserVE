@@ -16,6 +16,17 @@
   --color-tide: #3d6b78;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /*
+    Tamaño de las descripciones que van bajo un encabezado de sección.
+
+    Existe como paso propio porque `text-sm` (14px) las dejaba a la vez pequeñas
+    y grises: la jerarquía se estaba consiguiendo apagando el texto en lugar de
+    ordenándolo. Un punto por encima del cuerpo denso —y a `text-ink/70`, que sí
+    pasa el contraste— separa el encabezado de su explicación sin difuminarla.
+  */
+  --text-descripcion: 0.9375rem;
+  --text-descripcion--line-height: 1.6;
 }
 
 :root {
