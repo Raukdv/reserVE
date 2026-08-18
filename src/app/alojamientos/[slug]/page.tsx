@@ -152,7 +152,7 @@ export default async function UnitPage({
 
         <div className="mt-12 grid gap-12 lg:grid-cols-[1fr_380px]">
           <div>
-            <p className="whitespace-pre-line leading-relaxed text-ink/80">{unit.description}</p>
+            <p className="whitespace-pre-line text-entrada text-ink/80">{unit.description}</p>
 
             {amenityList.length > 0 && (
               <>

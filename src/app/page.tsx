@@ -71,7 +71,7 @@ export default async function HomePage() {
             <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
               {str(s.hero, 'title', businessName)}
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-ink/70">
+            <p className="mt-5 max-w-xl text-entrada text-ink/70">
               {str(s.hero, 'subtitle', 'Consulta disponibilidad y reserva tus fechas en línea.')}
             </p>
 
@@ -92,7 +92,7 @@ export default async function HomePage() {
           <div className="flex items-end justify-between gap-6">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">Alojamientos</h2>
-              <p className="mt-2 text-ink/70">Elige el espacio que mejor se ajuste a tu estadía.</p>
+              <p className="mt-2 text-entrada text-ink/70">Elige el espacio que mejor se ajuste a tu estadía.</p>
             </div>
             <Link href="/alojamientos" className="shrink-0 text-sm hover:underline">
               Ver todos →
@@ -144,7 +144,7 @@ export default async function HomePage() {
               <h2 className="text-3xl font-semibold tracking-tight">
                 {str(s.about, 'title', 'Sobre nosotros')}
               </h2>
-              <p className="mt-5 whitespace-pre-line leading-relaxed text-ink/70">
+              <p className="mt-5 whitespace-pre-line text-entrada text-ink/70">
                 {str(s.about, 'body', 'Sección editable desde el panel de administración.')}
               </p>
             </div>
@@ -173,7 +173,7 @@ export default async function HomePage() {
               <h2 className="text-3xl font-semibold tracking-tight">
                 {str(s.location, 'title', 'Cómo llegar')}
               </h2>
-              <p className="mt-5 leading-relaxed text-ink/70">{str(s.location, 'body')}</p>
+              <p className="mt-5 text-entrada text-ink/70">{str(s.location, 'body')}</p>
               <p className="mt-6 text-descripcion text-ink/70">
                 {str(s.location, 'address', property?.address ?? '')}
               </p>

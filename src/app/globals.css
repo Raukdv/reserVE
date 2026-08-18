@@ -27,6 +27,23 @@
   */
   --text-descripcion: 0.9375rem;
   --text-descripcion--line-height: 1.6;
+
+  /*
+    Entradilla: el párrafo que abre una sección de la web pública.
+
+    Existe porque en el sitio público faltaba el escalón intermedio. Los tamaños
+    grandes sí estaban —hero de 60px, titulares de sección de 30— pero debajo se
+    caía directo a los 16 del cuerpo, y entre un titular de 30 y un párrafo de 16
+    no hay transición: el ojo salta.
+
+    18px con interlineado holgado sostiene ese salto y marca cuál es el párrafo
+    que hay que leer si solo se va a leer uno. El cuerpo se queda en 16.
+
+    En el panel no hace falta: allí los titulares son de 16 y la descripción de
+    15, que es un escalón corto a propósito porque se lee de trabajo.
+  */
+  --text-entrada: 1.125rem;
+  --text-entrada--line-height: 1.7;
 }
 
 :root {

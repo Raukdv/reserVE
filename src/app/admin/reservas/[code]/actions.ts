@@ -357,3 +357,64 @@ export async function recordRefund(
 
   return { ok: `Devolución de ${usd(Number(result.amount_usd ?? 0))} registrada.${rest}` }
 }
+
+const extendSchema = z.object({
+  code: z.string().trim().min(4),
+  checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Revisa la fecha'),
+})
+
+/**
+ * Alarga una estadía.
+ *
+ * Solo hacia adelante. Recortar implica devolver dinero y pasa por la política
+ * de cancelación, no por aquí.
+ */
+export async function extendStay(
+  _prev: BookingActionState,
+  formData: FormData,
+): Promise<BookingActionState> {
+  await requireStaff()
+
+  const parsed = extendSchema.safeParse({
+    code: formData.get('code'),
+    checkOut: formData.get('checkOut'),
+  })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('staff_extend_stay', {
+    p_code: parsed.data.code,
+    p_check_out: parsed.data.checkOut,
+  })
+
+  if (error) return { error: 'No se pudo alargar la estadía.' }
+
+  const result = data as {
+    ok: boolean
+    error?: string
+    extra_nights?: number
+    added_usd?: number
+  }
+
+  if (!result.ok) {
+    const messages: Record<string, string> = {
+      unavailable: 'Esas noches ya están ocupadas por otra reserva o un bloqueo.',
+      not_later: 'La nueva salida tiene que ser posterior a la actual.',
+      not_extendable: 'Solo se alarga una reserva confirmada o en curso.',
+    }
+    return { error: messages[result.error ?? ''] ?? 'No se pudo alargar la estadía.' }
+  }
+
+  revalidatePath(`/admin/reservas/${parsed.data.code}`)
+  revalidatePath('/admin')
+  revalidatePath('/admin/calendario')
+  revalidatePath('/alojamientos', 'layout')
+
+  const nights = result.extra_nights ?? 0
+
+  return {
+    ok:
+      `Estadía alargada ${nights} noche${nights === 1 ? '' : 's'}. ` +
+      `Se añadieron ${usd(Number(result.added_usd ?? 0))} al total.`,
+  }
+}

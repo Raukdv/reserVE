@@ -104,6 +104,7 @@ De arriba abajo, y cada peldaño con su papel:
 | Título de página del panel | `text-2xl font-semibold tracking-tight` | 24 px |
 | Título de sección pública | `text-3xl font-semibold tracking-tight` | 30 px |
 | **Título de sección del panel** | `text-base font-semibold` | 16 px |
+| **Entradilla pública** | `text-entrada` | 18 px / 1.7 |
 | **Descripción de sección** | `text-descripcion text-ink/70` | 15 px / 1.6 |
 | Cuerpo y campos | `text-sm` | 14 px |
 | Metadatos y ayudas | `text-xs text-ink/60` | 12 px |
@@ -388,10 +389,20 @@ Resuelto en el panel: los encabezados de sección subieron de 14 px normal a
 16 px semibold (27 sitios) y las descripciones a 15 px (44 sitios), que es donde
 el salto se nota más porque es el par que más se repite.
 
-Sigue abierto en la web pública, donde el problema no es el mismo: allí los
-tamaños grandes sí existen —hero de 60 px, secciones de 30— pero el escalón
-intermedio entre el titular de sección y el cuerpo está vacío. Conviene decidirlo
-con las fotos puestas, no antes.
+Resuelto también en la web pública, que tenía el problema contrario: los tamaños
+grandes sí existían —hero de 60 px, secciones de 30— pero debajo se caía directo
+a los 16 del cuerpo. Entre un titular de 30 y un párrafo de 16 no hay
+transición: el ojo salta.
+
+`text-entrada` —18 px con interlineado 1.7— es ese peldaño. Se aplica al párrafo
+que abre cada sección: el subtítulo del hero, la entrada de Alojamientos, los
+cuerpos de «sobre nosotros» y «cómo llegar», y la descripción de cada
+alojamiento. El cuerpo se queda en 16.
+
+La escala pública queda: **60/36 → 30 → 18 → 16 → 15 → 14 → 12**.
+
+En el panel no hace falta ese escalón: allí los titulares son de 16 y la
+descripción de 15, un salto corto a propósito porque se lee de trabajo.
 
 ### No hay voz tipográfica
 

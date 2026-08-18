@@ -275,15 +275,18 @@ campo que espera `0.3` invita a escribir `30` y confirmar un 3000%.
 
 ---
 
-## Barras a media celda en el calendario del panel
+## ~~Barras a media celda en el calendario del panel~~ — hecho
 
-Los PMS comerciales dibujan las estadías desplazadas media columna, de modo que
-una salida y una entrada el mismo día se ven como dos triángulos compartiendo el
-cuadro. Aquí se pintan como celdas completas adyacentes: correcto respecto al
-modelo —el rango `[)` deja libre la noche de salida— pero visualmente sugiere que
-ese día está ocupado entero.
+Las estadías se dibujan desplazadas media columna, así que el día en que uno sale
+y otro entra se ve como dos mitades compartiendo el cuadro. El ancho no cambió:
+sigue siendo una columna por noche.
 
-Abordarlo junto con arrastrar sobre la rejilla para bloquear fechas.
+Eso obligó a sacar las barras del flujo de celdas —con el desplazamiento, media
+celda pertenece a una estadía y media a la siguiente— y la rejilla pasó a ser
+componente cliente. Con esa estructura ya puesta entró también **arrastrar sobre
+los días libres para bloquearlos**, que se abordaba junto.
+
+Ver `docs/funciones/calendario-y-bloqueos.md`.
 
 ---
 

@@ -3,14 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { parseRange } from '@/lib/format'
 import { businessToday } from '@/lib/business-date'
 import { BlockDates, type ActiveBlock } from '@/components/block-dates'
+import { CalendarGrid, DAY_WIDTH, type Bar, type Day } from '@/components/calendar-grid'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Calendario' }
 
 const DAYS = 45
-
-/** Ancho de una columna de día, en píxeles. Compartido por cabeceras y barras. */
-const DAY_WIDTH = 28
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const addDays = (d: Date, n: number) => {
@@ -37,17 +35,6 @@ const TONE: Record<string, string> = {
   checked_in: 'bg-tide text-white',
   completed: 'bg-ink/25 text-ink',
   block: 'bg-ink/15 text-ink/70',
-}
-
-type Cell = {
-  tone: string
-  title: string
-  href: string
-  /** Solo en la primera celda visible de la barra: texto y ancho de la etiqueta. */
-  label: string | null
-  span: number
-  roundedStart: boolean
-  roundedEnd: boolean
 }
 
 export default async function CalendarPage({
@@ -89,9 +76,11 @@ export default async function CalendarPage({
       .order('stay'),
   ])
 
-  // Índice unit_id → día ISO → qué ocupa ese día. Se construye una vez para no
-  // recorrer los holds dentro del doble bucle de la rejilla.
-  const grid = new Map<string, Map<string, Cell>>()
+  // Una barra por estadía, ya recortada a la ventana visible. Antes esto era un
+  // índice día a día porque cada celda se pintaba por separado; con las barras
+  // desplazadas media columna eso deja de servir: media celda pertenece a una
+  // estadía y media a la siguiente.
+  const bars: Bar[] = []
 
   for (const hold of holds ?? []) {
     const booking = Array.isArray(hold.bookings) ? hold.bookings[0] : hold.bookings
@@ -106,41 +95,25 @@ export default async function CalendarPage({
       ? block?.reason ?? 'Bloqueado'
       : booking?.guest_name ?? 'Reserva'
 
-    const href = booking ? `/admin/reservas/${booking.code}` : '/admin/calendario'
-
-    // La estadía puede empezar antes de la ventana o terminar después. Se recorta
-    // para que la etiqueta caiga en la primera celda VISIBLE, no en una que está
-    // fuera de pantalla, y para que el ancho de la etiqueta no se pase de largo.
     const rangeStart = new Date(`${from}T00:00:00Z`)
     const rangeEnd = new Date(`${to}T00:00:00Z`)
     const visibleStart = rangeStart < start ? start : rangeStart
     const visibleEnd = rangeEnd > end ? end : rangeEnd
 
-    const span = Math.round(
-      (visibleEnd.getTime() - visibleStart.getTime()) / 86_400_000,
-    )
+    const span = Math.round((visibleEnd.getTime() - visibleStart.getTime()) / 86_400_000)
     if (span <= 0) continue
 
-    if (!grid.has(hold.unit_id)) grid.set(hold.unit_id, new Map())
-    const row = grid.get(hold.unit_id)!
-
-    const cursor = new Date(visibleStart)
-    let index = 0
-    while (cursor < visibleEnd) {
-      const key = iso(cursor)
-      row.set(key, {
-        tone: TONE[status] ?? TONE.block,
-        title: text,
-        href,
-        label: index === 0 ? text : null,
-        span,
-        roundedStart: index === 0 && rangeStart >= start,
-        roundedEnd:
-          iso(addDays(cursor, 1)) === iso(visibleEnd) && rangeEnd <= end,
-      })
-      cursor.setUTCDate(cursor.getUTCDate() + 1)
-      index++
-    }
+    bars.push({
+      unitId: hold.unit_id,
+      offset: Math.round((visibleStart.getTime() - start.getTime()) / 86_400_000),
+      span,
+      tone: TONE[status] ?? TONE.block,
+      label: text,
+      title: `${text} · ${from} → ${to}`,
+      href: booking ? `/admin/reservas/${booking.code}` : '/admin/calendario',
+      openStart: rangeStart >= start,
+      openEnd: rangeEnd <= end,
+    })
   }
 
   const blocks: ActiveBlock[] = (blockRows ?? [])
@@ -170,6 +143,13 @@ export default async function CalendarPage({
   }
 
   const todayIso = iso(today)
+
+  const gridDays: Day[] = days.map((d) => ({
+    key: iso(d),
+    letter: dayLetter.format(d),
+    num: dayNum.format(d),
+    weekend: [0, 6].includes(d.getUTCDay()),
+  }))
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
@@ -210,96 +190,31 @@ export default async function CalendarPage({
 
       <BlockDates units={units ?? []} blocks={blocks} today={todayIso} />
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
-        <div className="min-w-max">
-          {/* Meses */}
-          <div className="flex border-b border-ink/10">
-            <div className="w-44 shrink-0 border-r border-ink/10" />
-            {monthSpans.map((m) => (
-              <div
-                key={m.name}
-                className="border-r border-ink/10 px-2 py-1.5 text-xs text-ink/70 first-letter:uppercase"
-                style={{ width: `${m.span * DAY_WIDTH}px` }}
-              >
-                {m.name}
-              </div>
-            ))}
-          </div>
-
-          {/* Días */}
-          <div className="flex border-b border-ink/10">
-            <div className="w-44 shrink-0 border-r border-ink/10 px-3 py-2 text-xs font-medium text-ink/70">
-              Unidad
-            </div>
-            {days.map((d) => {
-              const key = iso(d)
-              const weekend = [0, 6].includes(d.getUTCDay())
-              return (
-                <div
-                  key={key}
-                  className={`w-7 shrink-0 py-1 text-center text-[10px] leading-tight ${
-                    key === todayIso ? 'bg-clay/20 font-semibold' : weekend ? 'bg-ink/3' : ''
-                  }`}
-                >
-                  <div className="text-ink/60">{dayLetter.format(d)}</div>
-                  <div>{dayNum.format(d)}</div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Filas */}
-          {(units ?? []).map((unit) => (
-            <div key={unit.id} className="flex border-b border-ink/8 last:border-b-0">
-              <div className="w-44 shrink-0 truncate border-r border-ink/10 px-3 py-2.5 text-sm">
-                {unit.name}
-              </div>
-
-              {days.map((d) => {
-                const key = iso(d)
-                const cell = grid.get(unit.id)?.get(key)
-                const weekend = [0, 6].includes(d.getUTCDay())
-
-                if (!cell) {
-                  return (
-                    <div
-                      key={key}
-                      className={`h-11 w-7 shrink-0 border-r border-ink/5 ${
-                        key === todayIso ? 'bg-clay/10' : weekend ? 'bg-ink/3' : ''
-                      }`}
-                    />
-                  )
-                }
-
-                return (
-                  <Link
-                    key={key}
-                    href={cell.href}
-                    title={cell.title}
-                    className={`relative h-11 w-7 shrink-0 border-r border-white/25 ${cell.tone} ${
-                      cell.roundedStart ? 'rounded-l-md' : ''
-                    } ${cell.roundedEnd ? 'rounded-r-md' : ''}`}
-                  >
-                    {/*
-                      La etiqueta se posiciona en absoluto y se extiende sobre toda
-                      la barra. Dentro de la celda de 28px se truncaría a un par de
-                      caracteres aunque la barra ocupe cuatro noches.
-                    */}
-                    {cell.label && (
-                      <span
-                        className="pointer-events-none absolute left-1.5 top-1/2 z-10 -translate-y-1/2 truncate text-[10px] font-medium leading-none"
-                        style={{ width: `${cell.span * DAY_WIDTH - 12}px` }}
-                      >
-                        {cell.label}
-                      </span>
-                    )}
-                  </Link>
-                )
-              })}
+      {/*
+        La fila de meses se queda aquí porque no participa del arrastre; la
+        rejilla pasa a ser cliente para poder dibujar bloqueos sobre ella.
+      */}
+      <div className="mt-6 overflow-x-auto">
+        <div className="flex min-w-max border-b border-ink/10 pb-1">
+          <div className="w-44 shrink-0" />
+          {monthSpans.map((m) => (
+            <div
+              key={m.name}
+              className="border-l border-ink/10 px-2 text-xs text-ink/70 first-letter:uppercase"
+              style={{ width: `${m.span * DAY_WIDTH}px` }}
+            >
+              {m.name}
             </div>
           ))}
         </div>
       </div>
+
+      <CalendarGrid
+        units={(units ?? []).map((u) => ({ id: u.id, name: u.name }))}
+        days={gridDays}
+        bars={bars}
+        todayIso={todayIso}
+      />
 
       {(units ?? []).length === 0 && (
         <p className="mt-6 text-descripcion text-ink/70">No hay unidades creadas todavía.</p>

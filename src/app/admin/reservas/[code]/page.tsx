@@ -298,6 +298,7 @@ export default async function BookingDetail({
         refundDueUsd={booking.refund_due_usd === null ? null : Number(booking.refund_due_usd)}
         refundedUsd={refundedUsd}
         paidUsd={collection.paidUsd}
+        checkOutDate={booking.check_out}
       />
 
       {booking.manual_confirmation_reason && (

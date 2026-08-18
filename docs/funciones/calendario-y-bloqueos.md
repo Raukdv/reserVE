@@ -106,6 +106,35 @@ Los dos valores están en una sola constante cada uno porque cabeceras y barras
 tienen que cuadrar al píxel: si se desalinean, la barra dice un día distinto del
 que marca la cabecera.
 
+### Las barras van desplazadas media columna
+
+Una estadía ocupa la habitación desde el mediodía de la entrada hasta el mediodía
+de la salida. Pintarla como celdas completas era correcto respecto al modelo —el
+rango `[)` deja libre la noche de salida— pero se leía como si el día de salida
+estuviera ocupado entero.
+
+Desplazándola media columna, el día en que uno sale y otro entra se ve como dos
+mitades compartiendo el cuadro. Responde de un vistazo la pregunta que más se
+hace el operador: «¿puedo meter a alguien ese día?». El ancho no cambia: sigue
+siendo una columna por noche.
+
+Eso obligó a sacar las barras del flujo de celdas. Antes cada día era una celda
+coloreada; con el desplazamiento media celda pertenece a una estadía y media a la
+siguiente, así que ahora las celdas son solo fondo y las barras se posicionan en
+absoluto sobre la fila.
+
+### Arrastrar para bloquear
+
+Sobre los días libres de una unidad se arrastra y aparece la confirmación con el
+motivo. El rango que propone es **semiabierto**, igual que en la base: arrastrar
+hasta el día 3 propone `[.., 4)`, porque la salida queda libre.
+
+Los días ya ocupados no son arrastrables — proponer un bloqueo que el `EXCLUDE`
+va a rechazar sería ofrecer algo que no se puede hacer.
+
+La rejilla es componente cliente por esto. La fila de meses se quedó en el
+servidor, porque no participa del arrastre.
+
 ### Los colores separan por tono, no por intensidad
 
 | Estado | Color |
@@ -142,18 +171,12 @@ equivocada.
 
 ## Lo que no cubre
 
-**Las barras se pintan a celda completa.** Los PMS comerciales las desplazan
-media columna, de modo que una salida y una entrada el mismo día se ven como dos
-triángulos compartiendo el cuadro. Aquí quedan como celdas adyacentes: correcto
-respecto al modelo —el rango `[)` deja libre la noche de salida— pero
-visualmente sugiere que ese día está ocupado entero.
+**El arrastre es solo de ratón.** No hay equivalente por teclado ni táctil; en
+móvil sigue estando el formulario de fechas de siempre.
 
-**No se puede arrastrar sobre la rejilla para bloquear.** Hoy el bloqueo se crea
-con un formulario de fechas. Conviene abordarlo junto con lo anterior.
-
-**No hay extensión de estadía.** Si el huésped se queda una noche más no hay
-forma de alargar la reserva: habría que crear otra, y el `EXCLUDE` la rechazaría
-si esa noche ya está tomada.
+**Acortar una estadía no existe.** Alargar sí —`staff_extend_stay()`— pero
+recortar implica devolver dinero y pasa por la política de cancelación, así que
+no es una operación de calendario.
 
 **El calendario no señala las estadías vencidas sin cerrar.** Eso sale en el
 resumen del panel. Ver `night-audit.md`.
@@ -168,8 +191,10 @@ resumen del panel. Ver `night-audit.md`.
 | Disponibilidad informativa | `is_available()`, migración `0001` |
 | Crear reserva | `create_booking()`, migración `0004` |
 | Crear y liberar bloqueos | `create_block()`, `release_block()`, migración `0008` |
+| Alargar una estadía | `staff_extend_stay()`, migración `0026` |
 | Expiración de pendientes | `expire_stale_bookings()`, migración `0001`; cron en `0005` |
-| Timeline del panel | `src/app/admin/calendario/page.tsx` |
+| Datos del timeline | `src/app/admin/calendario/page.tsx` |
+| Rejilla, barras y arrastre | `src/components/calendar-grid.tsx` |
 | Formulario de bloqueo | `src/components/block-dates.tsx` |
 | Calendario público | `src/components/availability-calendar.tsx` |
 | Pruebas de la restricción | `scripts/db-check.mjs` |

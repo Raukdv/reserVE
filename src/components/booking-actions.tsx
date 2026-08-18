@@ -6,6 +6,7 @@ import {
   confirmWithoutPayment,
   cancelBooking,
   recordRefund,
+  extendStay,
   checkIn,
   checkOut,
   type BookingActionState,
@@ -49,6 +50,7 @@ export function BookingActions({
   refundDueUsd,
   refundedUsd,
   paidUsd,
+  checkOutDate,
 }: {
   code: string
   status: string
@@ -63,6 +65,8 @@ export function BookingActions({
   refundedUsd?: number
   /** Lo que el huésped llegó a pagar: techo de cualquier devolución. */
   paidUsd?: number
+  /** Salida actual, en `YYYY-MM-DD`. Punto de partida para alargar. */
+  checkOutDate?: string
 }) {
   const open = status === 'pending' || status === 'confirmed' || status === 'checked_in'
 
@@ -81,6 +85,10 @@ export function BookingActions({
             primero que el operador necesita a mano. */}
         {status === 'confirmed' && <StayStep code={code} step="in" />}
         {status === 'checked_in' && <StayStep code={code} step="out" />}
+
+        {(status === 'confirmed' || status === 'checked_in') && checkOutDate && (
+          <ExtendStay code={code} checkOut={checkOutDate} />
+        )}
 
         {open && <RecordPayment code={code} suggested={outstandingUsd} rate={rate} />}
         {status === 'pending' && <ConfirmWithoutPayment code={code} />}
@@ -250,6 +258,71 @@ function RecordRefund({
             {state.ok && <span className="text-sm text-moss">{state.ok}</span>}
             {state.error && <span className="text-sm text-red-700">{state.error}</span>}
           </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Alarga la estadía.
+ *
+ * Solo hacia adelante: recortar implica devolver dinero y eso pasa por la
+ * política de cancelación. Las noches nuevas se cobran a su precio real y los
+ * cargos ya pactados no se repactan — lo resuelve `staff_extend_stay()`.
+ */
+function ExtendStay({ code, checkOut }: { code: string; checkOut: string }) {
+  const [state, action, pending] = useActionState<BookingActionState, FormData>(
+    extendStay,
+    {},
+  )
+  const [open, setOpen] = useState(false)
+
+  // Un día después de la salida actual: es el mínimo que tiene sentido y el
+  // valor que se quiere nueve de cada diez veces.
+  const nextDay = new Date(`${checkOut}T12:00:00Z`)
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1)
+  const suggested = nextDay.toISOString().slice(0, 10)
+
+  return (
+    <div className="border-t border-ink/10 pt-5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-sm underline hover:text-ink"
+      >
+        {open ? 'Cerrar' : 'Alargar estadía'}
+      </button>
+      <p className="mt-2 text-xs text-ink/70">
+        El huésped se queda más noches. Se cobran a su precio real y se comprueba que
+        las fechas sigan libres.
+      </p>
+
+      {open && (
+        <form action={action} className="mt-3 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="code" value={code} />
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink">Nueva salida</span>
+            <input
+              name="checkOut"
+              type="date"
+              min={suggested}
+              defaultValue={suggested}
+              required
+              className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+            />
+          </label>
+
+          <button
+            disabled={pending}
+            className="rounded-lg bg-ink px-5 py-2 text-sm text-sand disabled:opacity-50"
+          >
+            {pending ? 'Alargando…' : 'Alargar'}
+          </button>
+
+          {state.ok && <span className="pb-2 text-sm text-moss">{state.ok}</span>}
+          {state.error && <span className="pb-2 text-sm text-red-700">{state.error}</span>}
         </form>
       )}
     </div>
