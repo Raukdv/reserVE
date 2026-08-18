@@ -5,6 +5,7 @@ import { price } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
+import { unitCovers } from '@/lib/media'
 
 export const revalidate = 300
 
@@ -40,6 +41,13 @@ export default async function HomePage() {
     (content ?? []).map((c) => [c.key, c.data as Record<string, unknown>]),
   )
 
+  const covers = await unitCovers((units ?? []).map((u) => u.id))
+
+  // El hero toma la portada de la primera unidad publicada. Es la foto que el
+  // operador ya eligió como cara del alojamiento, y ahorra tener que subir otra
+  // solo para la cabecera.
+  const hero = units?.[0] ? covers.get(units[0].id) : undefined
+
   return (
     <>
       <SiteHeader businessName={businessName} />
@@ -47,17 +55,23 @@ export default async function HomePage() {
       <main>
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-ink/10">
-          <UnitThumb slug={businessName} className="absolute inset-0" />
+          <UnitThumb
+            slug={businessName}
+            src={hero?.url}
+            alt={hero?.alt}
+            priority
+            className="absolute inset-0"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-sand via-sand/80 to-sand/30" />
 
           <div className="relative mx-auto max-w-6xl px-6 pb-14 pt-24 sm:pt-32">
             {property?.city && (
-              <p className="text-xs uppercase tracking-[0.2em] text-ink/50">{property.city}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{property.city}</p>
             )}
             <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
               {str(s.hero, 'title', businessName)}
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-ink/65">
+            <p className="mt-5 max-w-xl text-lg text-ink/70">
               {str(s.hero, 'subtitle', 'Consulta disponibilidad y reserva tus fechas en línea.')}
             </p>
 
@@ -66,7 +80,7 @@ export default async function HomePage() {
             </div>
 
             {rate && (
-              <p className="mt-4 text-xs text-ink/45">
+              <p className="mt-4 text-xs text-ink/60">
                 Tarifas en USD. Referencia BCV: {rate.toLocaleString('es-VE')} Bs/USD
               </p>
             )}
@@ -78,7 +92,7 @@ export default async function HomePage() {
           <div className="flex items-end justify-between gap-6">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">Alojamientos</h2>
-              <p className="mt-2 text-ink/60">Elige el espacio que mejor se ajuste a tu estadía.</p>
+              <p className="mt-2 text-ink/70">Elige el espacio que mejor se ajuste a tu estadía.</p>
             </div>
             <Link href="/alojamientos" className="shrink-0 text-sm hover:underline">
               Ver todos →
@@ -93,24 +107,29 @@ export default async function HomePage() {
                   href={`/alojamientos/${unit.slug}`}
                   className="group overflow-hidden rounded-2xl border border-ink/10 bg-white transition hover:border-ink/25 hover:shadow-sm"
                 >
-                  <UnitThumb slug={unit.slug} className="aspect-[4/3] w-full" />
+                  <UnitThumb
+                    slug={unit.slug}
+                    src={covers.get(unit.id)?.url}
+                    alt={covers.get(unit.id)?.alt ?? unit.name}
+                    className="aspect-[4/3] w-full"
+                  />
                   <div className="p-5">
                     <h3 className="font-medium">{unit.name}</h3>
-                    <p className="mt-2 line-clamp-2 text-sm text-ink/60">{unit.description}</p>
-                    <p className="mt-4 text-xs text-ink/50">
+                    <p className="mt-2 line-clamp-2 text-sm text-ink/70">{unit.description}</p>
+                    <p className="mt-4 text-xs text-ink/70">
                       {unit.max_guests} huéspedes · {unit.bedrooms} hab. · {unit.beds} camas
                       {unit.min_nights > 1 && ` · mín. ${unit.min_nights} noches`}
                     </p>
                     <p className="mt-3 text-sm font-medium">
                       {price(unit.base_price_usd, rate, display)}
-                      <span className="font-normal text-ink/50"> / noche</span>
+                      <span className="font-normal text-ink/70"> / noche</span>
                     </p>
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="mt-10 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+            <p className="mt-10 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
               Todavía no hay alojamientos publicados.{' '}
               <Link href="/admin/unidades" className="underline">Crear el primero</Link>
             </p>
@@ -141,7 +160,7 @@ export default async function HomePage() {
             {list<{ label: string; detail: string }>(s.services, 'items').map((item) => (
               <div key={item.label} className="border-t border-ink/15 pt-4">
                 <p className="font-medium">{item.label}</p>
-                <p className="mt-1 text-sm text-ink/60">{item.detail}</p>
+                <p className="mt-1 text-descripcion text-ink/70">{item.detail}</p>
               </div>
             ))}
           </div>
@@ -155,7 +174,7 @@ export default async function HomePage() {
                 {str(s.location, 'title', 'Cómo llegar')}
               </h2>
               <p className="mt-5 leading-relaxed text-ink/70">{str(s.location, 'body')}</p>
-              <p className="mt-6 text-sm text-ink/50">
+              <p className="mt-6 text-descripcion text-ink/70">
                 {str(s.location, 'address', property?.address ?? '')}
               </p>
             </div>
@@ -173,9 +192,9 @@ export default async function HomePage() {
               <details key={item.q} className="group py-5">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-medium">
                   {item.q}
-                  <span className="text-ink/40 transition group-open:rotate-45">+</span>
+                  <span className="text-ink/60 transition group-open:rotate-45">+</span>
                 </summary>
-                <p className="mt-3 leading-relaxed text-ink/65">{item.a}</p>
+                <p className="mt-3 leading-relaxed text-ink/70">{item.a}</p>
               </details>
             ))}
           </div>
@@ -187,7 +206,7 @@ export default async function HomePage() {
             <h2 className="text-3xl font-semibold tracking-tight">
               {str(s.contact, 'title', 'Contacto')}
             </h2>
-            <p className="mt-4 max-w-lg text-ink/65">{str(s.contact, 'body')}</p>
+            <p className="mt-4 max-w-lg text-ink/70">{str(s.contact, 'body')}</p>
 
             <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 text-sm">
               {settings?.business_email && (

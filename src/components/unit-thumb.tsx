@@ -1,9 +1,18 @@
 /**
- * Marcador visual para unidades sin fotos cargadas.
+ * Imagen de una unidad, con marcador de reserva.
  *
- * El degradado se deriva del slug, así que cada unidad conserva su color entre
- * recargas y entre el listado y el detalle. Se reemplaza por unit_media en
- * cuanto haya imágenes reales.
+ * Si hay foto cargada se pinta la foto. Si no, un degradado derivado del slug,
+ * así que cada unidad conserva su color entre recargas y entre el listado y el
+ * detalle — un gris igual para todas haría que un catálogo sin fotos pareciera
+ * roto en lugar de vacío.
+ *
+ * El degradado se queda detrás de la imagen aunque haya foto: es lo que se ve
+ * mientras carga, y lo que queda si el archivo falla. Sin él, el hueco es
+ * blanco y la tarjeta salta al terminar de bajar.
+ *
+ * Sin `next/image` a propósito: la optimización de imágenes de Vercel se cobra
+ * aparte en el plan Hobby. Ver COSTO-CERO.md, regla 3.5. Por eso las fotos se
+ * comprimen al subirlas, que es cuando sale gratis.
  */
 
 const PALETTES = [
@@ -25,10 +34,18 @@ export function UnitThumb({
   slug,
   label,
   className = '',
+  src,
+  alt,
+  priority = false,
 }: {
   slug: string
   label?: string
   className?: string
+  /** URL de la foto. Sin ella se pinta solo el degradado. */
+  src?: string | null
+  alt?: string | null
+  /** La portada visible al abrir la página: se carga sin diferir. */
+  priority?: boolean
 }) {
   const [from, to] = PALETTES[hash(slug) % PALETTES.length]
 
@@ -36,17 +53,29 @@ export function UnitThumb({
     <div
       className={`relative overflow-hidden ${className}`}
       style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
-      aria-hidden={!label}
+      aria-hidden={!label && !alt}
     >
-      <div
-        className="absolute inset-0 opacity-25"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 25% 20%, rgba(255,255,255,.55), transparent 45%),' +
-            'radial-gradient(circle at 80% 75%, rgba(0,0,0,.35), transparent 50%)',
-        }}
-      />
-      {label && (
+      {src ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={src}
+          alt={alt ?? ''}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div
+          className="absolute inset-0 opacity-25"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 25% 20%, rgba(255,255,255,.55), transparent 45%),' +
+              'radial-gradient(circle at 80% 75%, rgba(0,0,0,.35), transparent 50%)',
+          }}
+        />
+      )}
+
+      {label && !src && (
         <span className="absolute bottom-3 left-4 text-xs font-medium uppercase tracking-widest text-white/80">
           {label}
         </span>

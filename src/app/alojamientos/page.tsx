@@ -5,6 +5,7 @@ import { price, usd, dateLabel } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
+import { unitCovers } from '@/lib/media'
 import type { Quote } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -55,6 +56,8 @@ export default async function UnitsPage({
   const display = settings?.currency_display ?? 'both'
   const businessName = settings?.business_name ?? 'reserVE'
 
+  const covers = await unitCovers((units ?? []).map((u) => u.id))
+
   // Una cotización por unidad. El precio y la disponibilidad los resuelve
   // Postgres: el navegador nunca calcula totales.
   const quotes = new Map<string, Quote>()
@@ -89,7 +92,7 @@ export default async function UnitsPage({
         </div>
 
         {searching && (
-          <p className="mt-5 text-sm text-ink/60">
+          <p className="mt-5 text-descripcion text-ink/70">
             {dateLabel(from!)} → {dateLabel(to!)} · {guests} huésped{guests > 1 ? 'es' : ''} ·{' '}
             <strong className="font-medium text-ink">{available.length}</strong> disponible
             {available.length === 1 ? '' : 's'}
@@ -110,13 +113,18 @@ export default async function UnitsPage({
                   href={href}
                   className="group grid overflow-hidden rounded-2xl border border-ink/10 bg-white transition hover:border-ink/25 hover:shadow-sm sm:grid-cols-[240px_1fr]"
                 >
-                  <UnitThumb slug={unit.slug} className="min-h-44" />
+                  <UnitThumb
+                    slug={unit.slug}
+                    src={covers.get(unit.id)?.url}
+                    alt={covers.get(unit.id)?.alt ?? unit.name}
+                    className="min-h-44"
+                  />
 
                   <div className="flex flex-col justify-between gap-4 p-6 sm:flex-row">
                     <div className="min-w-0">
-                      <h2 className="font-medium">{unit.name}</h2>
-                      <p className="mt-2 max-w-xl text-sm text-ink/60">{unit.description}</p>
-                      <p className="mt-4 text-xs text-ink/50">
+                      <h2 className="text-base font-semibold">{unit.name}</h2>
+                      <p className="mt-2 max-w-xl text-sm text-ink/70">{unit.description}</p>
+                      <p className="mt-4 text-xs text-ink/70">
                         {unit.max_guests} huéspedes · {unit.bedrooms} hab. · {unit.beds} camas ·{' '}
                         {unit.bathrooms} baños
                       </p>
@@ -126,18 +134,18 @@ export default async function UnitsPage({
                       {quote?.ok ? (
                         <>
                           <p className="text-lg font-medium">{usd(quote.total_usd)}</p>
-                          <p className="text-xs text-ink/50">
+                          <p className="text-xs text-ink/70">
                             {quote.nights} noche{quote.nights > 1 ? 's' : ''} · limpieza incluida
                           </p>
                           {rate && (
-                            <p className="mt-1 text-xs text-ink/50">
+                            <p className="mt-1 text-xs text-ink/70">
                               {quote.total_ves.toLocaleString('es-VE', {
                                 maximumFractionDigits: 2,
                               })}{' '}
                               Bs
                             </p>
                           )}
-                          <p className="mt-3 text-xs text-ink/50">
+                          <p className="mt-3 text-xs text-ink/70">
                             Anticipo {Math.round(quote.deposit_ratio * 100)}%:{' '}
                             {usd(quote.deposit_usd)}
                           </p>
@@ -147,7 +155,7 @@ export default async function UnitsPage({
                           <p className="text-lg font-medium">
                             {price(unit.base_price_usd, rate, display)}
                           </p>
-                          <p className="text-xs text-ink/50">por noche</p>
+                          <p className="text-xs text-ink/70">por noche</p>
                         </>
                       )}
                     </div>
@@ -157,7 +165,7 @@ export default async function UnitsPage({
             })}
           </div>
         ) : (
-          <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+          <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
             {searching
               ? 'Ninguna unidad disponible en esas fechas. Prueba con otro rango.'
               : 'Todavía no hay alojamientos publicados.'}
@@ -166,7 +174,7 @@ export default async function UnitsPage({
 
         {unavailable.length > 0 && (
           <>
-            <h2 className="mt-14 text-sm font-medium text-ink/50">No disponible en esas fechas</h2>
+            <h2 className="mt-14 text-base font-semibold">No disponible en esas fechas</h2>
             <div className="mt-4 space-y-3">
               {unavailable.map((unit) => {
                 const quote = quotes.get(unit.id)
@@ -177,7 +185,7 @@ export default async function UnitsPage({
                     className="flex items-center justify-between gap-4 rounded-xl border border-ink/10 px-5 py-4 text-sm opacity-60"
                   >
                     <span>{unit.name}</span>
-                    <span className="text-xs text-ink/50">
+                    <span className="text-xs text-ink/70">
                       {reason}
                       {quote && !quote.ok && quote.min_nights
                         ? ` (mín. ${quote.min_nights})`
