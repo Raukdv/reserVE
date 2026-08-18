@@ -90,24 +90,24 @@ export function PaymentReviewCard({ payment }: { payment: ReviewPayment }) {
             {METHOD_LABEL[payment.method]}
           </span>
           {booking && (
-            <span className="text-sm text-ink/50">
+            <span className="text-sm text-ink/70">
               Reserva <strong className="font-medium text-ink">{booking.code}</strong>
             </span>
           )}
-          <span className="text-xs text-ink/40">reportado {when(payment.createdAt)}</span>
+          <span className="text-xs text-ink/60">reportado {when(payment.createdAt)}</span>
         </div>
 
         <p className="mt-4 text-2xl font-semibold">
           {money(payment.amount, payment.currency)}
           {payment.currency !== 'USD' && (
-            <span className="ml-2 text-base font-normal text-ink/50">
+            <span className="ml-2 text-base font-normal text-ink/70">
               ≈ {money(payment.amount_usd, 'USD')}
             </span>
           )}
         </p>
 
         {required !== null && (
-          <p className={`mt-1 text-sm ${mismatch ? 'text-amber-700' : 'text-ink/50'}`}>
+          <p className={`mt-1 text-sm ${mismatch ? 'text-amber-700' : 'text-ink/70'}`}>
             Anticipo requerido {money(required, 'USD')}
             {mismatch && ` · faltan ${money(shortfall!, 'USD')}`}
           </p>
@@ -129,7 +129,7 @@ export function PaymentReviewCard({ payment }: { payment: ReviewPayment }) {
         </dl>
 
         {VERIFY_HINT[payment.method] && (
-          <p className="mt-5 rounded-xl bg-sand p-3 text-xs text-ink/60">
+          <p className="mt-5 rounded-xl bg-sand p-3 text-xs text-ink/70">
             {VERIFY_HINT[payment.method]}
           </p>
         )}
@@ -177,7 +177,7 @@ export function PaymentReviewCard({ payment }: { payment: ReviewPayment }) {
       </div>
 
       <div>
-        <p className="mb-2 text-xs text-ink/50">Comprobante</p>
+        <p className="mb-2 text-xs text-ink/70">Comprobante</p>
         {payment.receiptUrl ? (
           <a href={payment.receiptUrl} target="_blank" rel="noreferrer">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -188,7 +188,7 @@ export function PaymentReviewCard({ payment }: { payment: ReviewPayment }) {
             />
           </a>
         ) : (
-          <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-ink/20 text-xs text-ink/40">
+          <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-ink/20 text-xs text-ink/60">
             Sin captura adjunta
           </div>
         )}
@@ -208,7 +208,7 @@ function Field({
 }) {
   return (
     <div>
-      <dt className="text-xs text-ink/45">{label}</dt>
+      <dt className="text-xs text-ink/60">{label}</dt>
       <dd className={`mt-0.5 break-words ${mono ? 'font-mono text-[13px]' : ''}`}>
         {value || '—'}
       </dd>

@@ -22,7 +22,7 @@ export default async function UnitsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Unidades</h1>
-          <p className="mt-1 text-sm text-ink/50">
+          <p className="mt-1 text-descripcion text-ink/70">
             Los alojamientos que se pueden reservar.
           </p>
         </div>
@@ -56,7 +56,7 @@ export default async function UnitsPage() {
                       className="h-16 w-24 shrink-0 rounded-lg bg-ink/5 object-cover"
                     />
                   ) : (
-                    <span className="flex h-16 w-24 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/20 text-[11px] text-ink/35">
+                    <span className="flex h-16 w-24 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/20 text-[11px] text-ink/60">
                       Sin foto
                     </span>
                   )}
@@ -65,26 +65,26 @@ export default async function UnitsPage() {
                     <span className="flex flex-wrap items-center gap-2">
                       <strong className="font-medium">{unit.name}</strong>
                       {!unit.is_published && (
-                        <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] text-ink/50">
+                        <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] text-ink/70">
                           Sin publicar
                         </span>
                       )}
                     </span>
-                    <span className="mt-1 block text-sm text-ink/55">
+                    <span className="mt-1 block text-sm text-ink/70">
                       {usd(unit.base_price_usd)} / noche · {unit.max_guests} huéspedes ·{' '}
                       {unit.bedrooms} hab. · {media.length} foto
                       {media.length === 1 ? '' : 's'}
                     </span>
                   </span>
 
-                  <span className="shrink-0 text-sm text-ink/40">Editar →</span>
+                  <span className="shrink-0 text-sm text-ink/60">Editar →</span>
                 </Link>
               </li>
             )
           })}
         </ul>
       ) : (
-        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
           Todavía no hay unidades.{' '}
           <Link href="/admin/unidades/nueva" className="underline">
             Crear la primera

@@ -10,6 +10,8 @@
  * Si cambias una migración, actualiza este archivo en el mismo commit.
  */
 
+import type { AppliedFee } from '@/lib/fees'
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type UserRole = 'admin' | 'staff' | 'guest'
@@ -29,6 +31,8 @@ export type PaymentMethod =
  * operar a la tasa del BCV. `paralelo` existe únicamente para medir la brecha
  * y ayudar a fijar el precio de lista en USD.
  */
+export type FeeKind = 'fixed' | 'per_night' | 'per_guest' | 'percent'
+
 export type RateMarket = 'oficial' | 'paralelo'
 
 export type EmailKind =
@@ -45,7 +49,9 @@ export type Quote =
       ok: true
       nights: number
       subtotal_usd: number
-      cleaning_fee_usd: number
+      /** Desglose de cargos aplicados a esta estadía. */
+      fees: AppliedFee[]
+      fees_usd: number
       total_usd: number
       rate: number
       /** Fecha valor de la tasa aplicada. El monto en Bs vale mientras coincida. */
@@ -120,7 +126,6 @@ export interface Database {
           beds: number
           bathrooms: number
           base_price_usd: number
-          cleaning_fee_usd: number
           min_nights: number
           max_nights: number | null
           advance_notice_days: number
@@ -139,7 +144,6 @@ export interface Database {
           beds?: number
           bathrooms?: number
           base_price_usd: number
-          cleaning_fee_usd?: number
           min_nights?: number
           max_nights?: number | null
           advance_notice_days?: number
@@ -189,8 +193,23 @@ export interface Database {
       }
 
       amenities: {
-        Row: { id: string; slug: string; label: string; icon: string | null }
-        Insert: { id?: string; slug: string; label: string; icon?: string | null }
+        Row: {
+          id: string
+          slug: string
+          label: string
+          /** Nombre del icono en lucide-react. Ver src/lib/amenities.ts. */
+          icon: string | null
+          category: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          slug: string
+          label: string
+          icon?: string | null
+          category?: string
+          sort_order?: number
+        }
         Update: Partial<Database['public']['Tables']['amenities']['Insert']>
         Relationships: []
       }
@@ -408,9 +427,11 @@ export interface Database {
           guest_document: string | null
           notes: string | null
           subtotal_usd: number
-          cleaning_fee_usd: number
           discount_usd: number
           total_usd: number
+          fees_usd: number
+          /** Desglose congelado de cargos tal como se aplicaron. */
+          fees_breakdown: Json
           rate_snapshot: number
           /** Fecha valor de rate_snapshot. Si deja de ser la vigente, se recotiza. */
           rate_date: string | null
@@ -445,9 +466,10 @@ export interface Database {
           guest_document?: string | null
           notes?: string | null
           subtotal_usd: number
-          cleaning_fee_usd?: number
           discount_usd?: number
           total_usd: number
+          fees_usd?: number
+          fees_breakdown?: Json
           rate_snapshot: number
           rate_date?: string | null
           total_ves: number
@@ -597,6 +619,45 @@ export interface Database {
         Relationships: []
       }
 
+      fees: {
+        Row: {
+          id: string
+          /** Null = cargo general, se aplica a todas las unidades. */
+          unit_id: string | null
+          name: string
+          kind: FeeKind
+          /** Monto en USD, o porcentaje si kind = percent. */
+          amount: number
+          description: string | null
+          refundable: boolean
+          is_active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          unit_id?: string | null
+          name: string
+          kind: FeeKind
+          amount: number
+          description?: string | null
+          refundable?: boolean
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['fees']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'fees_unit_id_fkey'
+            columns: ['unit_id']
+            isOneToOne: false
+            referencedRelation: 'units'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
       site_content: {
         Row: { key: string; data: Json; updated_by: string | null; updated_at: string }
         Insert: { key: string; data?: Json; updated_by?: string | null; updated_at?: string }
@@ -615,7 +676,15 @@ export interface Database {
           pending_ttl_hours: number
           igtf_enabled: boolean
           igtf_rate: number
+          /** Título de /legal/cancelacion. Vacío usa el genérico. */
+          cancellation_title: string | null
+          /** Texto de apoyo. Acompaña a los tramos; no los sustituye. */
           cancellation_policy: string | null
+          /** Escalera de reembolso: [{hours_before, refund_percent}]. */
+          cancellation_tiers: Json
+          /** Hora local de llegada. Los plazos de cancelación se miden desde aquí. */
+          check_in_time: string
+          check_out_time: string
           updated_at: string
         }
         Insert: {
@@ -628,7 +697,11 @@ export interface Database {
           pending_ttl_hours?: number
           igtf_enabled?: boolean
           igtf_rate?: number
+          cancellation_title?: string | null
           cancellation_policy?: string | null
+          cancellation_tiers?: Json
+          check_in_time?: string
+          check_out_time?: string
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['app_settings']['Insert']>
@@ -636,7 +709,25 @@ export interface Database {
       }
     }
 
-    Views: Record<string, never>
+    Views: {
+      /** Una fila por unidad: su foto de portada. Ver 0022. */
+      unit_covers: {
+        Row: {
+          unit_id: string
+          storage_path: string
+          alt_text: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'unit_media_unit_id_fkey'
+            columns: ['unit_id']
+            isOneToOne: false
+            referencedRelation: 'units'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+    }
 
     Functions: {
       current_rate: { Args: Record<string, never>; Returns: number }
@@ -725,6 +816,12 @@ export interface Database {
         Returns: Json
       }
       refresh_booking_rate: { Args: { p_code: string }; Returns: Json }
+      compute_fees: {
+        Args: { p_unit_id: string; p_nights: number; p_guests: number; p_subtotal: number }
+        Returns: Json
+      }
+      night_price: { Args: { p_unit_id: string; p_night: string }; Returns: number }
+      cancellation_quote: { Args: { p_code: string }; Returns: Json }
       create_block: {
         Args: { p_unit_id: string; p_from: string; p_to: string; p_reason?: string | null }
         Returns: Json
@@ -744,6 +841,10 @@ export interface Database {
       }
       staff_confirm_booking: { Args: { p_code: string; p_reason: string }; Returns: Json }
       staff_delete_unit: { Args: { p_unit_id: string }; Returns: Json }
+      staff_delete_amenity: {
+        Args: { p_id: string; p_force?: boolean }
+        Returns: Json
+      }
       staff_check_in: { Args: { p_code: string }; Returns: Json }
       staff_check_out: { Args: { p_code: string; p_force?: boolean }; Returns: Json }
       staff_cancel_booking: { Args: { p_code: string; p_reason: string | null }; Returns: Json }
@@ -765,6 +866,7 @@ export interface Database {
     Enums: {
       user_role: UserRole
       email_kind: EmailKind
+      fee_kind: FeeKind
       hold_kind: HoldKind
       booking_status: BookingStatus
       payment_kind: PaymentKind

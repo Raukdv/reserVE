@@ -28,7 +28,7 @@ export function DeleteUnitButton({ id, name }: { id: string; name: string }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-sm text-ink/45 underline hover:text-red-700"
+          className="text-sm text-ink/60 underline hover:text-red-700"
         >
           Eliminar unidad
         </button>
@@ -58,7 +58,7 @@ export function DeleteUnitButton({ id, name }: { id: string; name: string }) {
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-sm text-ink/50 underline"
+          className="text-sm text-ink/70 underline"
         >
           Cancelar
         </button>

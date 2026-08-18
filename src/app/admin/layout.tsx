@@ -11,6 +11,8 @@ const NAV = [
   { href: '/admin/pagos', label: 'Pagos' },
   { href: '/admin/unidades', label: 'Unidades' },
   { href: '/admin/tarifas', label: 'Tarifas' },
+  { href: '/admin/cargos', label: 'Cargos' },
+  { href: '/admin/amenidades', label: 'Amenidades' },
   { href: '/admin/contenido', label: 'Contenido' },
   { href: '/admin/ajustes', label: 'Ajustes' },
 ]
@@ -28,15 +30,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/" className="text-sm font-semibold tracking-tight">
               reserVE
             </Link>
-            <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] uppercase tracking-wider text-ink/55">
+            <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] uppercase tracking-wider text-ink/70">
               Admin
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-sm">
-            <span className="hidden text-ink/50 sm:inline">{profile?.full_name}</span>
+            <span className="hidden text-ink/70 sm:inline">{profile?.full_name}</span>
             <form action={logout}>
-              <button className="text-ink/50 hover:underline">Salir</button>
+              <button className="text-ink/70 hover:underline">Salir</button>
             </form>
           </div>
         </div>
@@ -47,7 +49,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="block whitespace-nowrap border-b-2 border-transparent py-3 text-ink/65 transition hover:border-ink/30 hover:text-ink"
+                  className="block whitespace-nowrap border-b-2 border-transparent py-3 text-ink/70 transition hover:border-ink/30 hover:text-ink"
                 >
                   {item.label}
                 </Link>

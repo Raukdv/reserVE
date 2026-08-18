@@ -65,10 +65,9 @@ const SECTIONS = {
     title: z.string().trim().max(120),
     body: z.string().trim().max(20000),
   }),
-  legal_cancelacion: z.object({
-    title: z.string().trim().max(120),
-    body: z.string().trim().max(20000),
-  }),
+  // `legal_cancelacion` ya no está: la política se publica generada desde los
+  // tramos de reembolso y se edita en Ajustes. Dejar aquí el esquema volvería a
+  // abrir la puerta a un texto que contradijera el cálculo.
   legal_privacidad: z.object({
     title: z.string().trim().max(120),
     body: z.string().trim().max(20000),

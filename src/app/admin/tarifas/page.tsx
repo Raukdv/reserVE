@@ -40,7 +40,7 @@ export default async function RatesPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Tarifas</h1>
-      <p className="mt-2 text-sm text-ink/55">
+      <p className="mt-2 text-descripcion text-ink/70">
         Cada unidad tiene una tarifa base y, opcionalmente, temporadas que la sobreescriben
         en las fechas que cubran. El precio de una estadía se calcula noche a noche.
       </p>
@@ -50,7 +50,7 @@ export default async function RatesPage() {
           <SeasonRates units={model} />
         </div>
       ) : (
-        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
           No hay unidades todavía.{' '}
           <Link href="/admin/unidades/nueva" className="underline">
             Crear la primera
@@ -58,7 +58,7 @@ export default async function RatesPage() {
         </p>
       )}
 
-      <p className="mt-8 text-xs text-ink/45">
+      <p className="mt-8 text-xs text-ink/60">
         La tarifa base y el mínimo de noches de cada unidad se editan en{' '}
         <Link href="/admin/unidades" className="underline">
           Unidades

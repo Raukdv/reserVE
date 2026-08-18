@@ -4,18 +4,9 @@ import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, createAdminClient, getProfile } from '@/lib/supabase/server'
+import { MAX_PHOTO_BYTES, MAX_PHOTOS_PER_UNIT } from '@/lib/media-limits'
 
 const MEDIA_BUCKET = 'unit-media'
-
-/**
- * Tope de la foto ya comprimida.
- *
- * El navegador la redimensiona a 1600 px y la pasa a WebP antes de subir, así
- * que una foto de móvil llega en torno a 200 KB. Este límite es la red del
- * servidor: 1 GB de almacenamiento en el plan gratuito da para unas cinco mil
- * fotos así, y para apenas doscientas sin comprimir.
- */
-const MAX_PHOTO_BYTES = 400 * 1024
 
 const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png']
 const EXTENSIONS: Record<string, string> = {
@@ -57,7 +48,6 @@ const unitSchema = z.object({
   beds: z.coerce.number().int().min(0).max(40),
   bathrooms: z.coerce.number().min(0).max(20),
   basePrice: z.coerce.number().min(0, 'El precio no puede ser negativo'),
-  cleaningFee: z.coerce.number().min(0),
   minNights: z.coerce.number().int().min(1).max(365),
   maxNights: z.coerce.number().int().min(0).max(365),
   advanceNotice: z.coerce.number().int().min(0).max(365),
@@ -78,7 +68,6 @@ export async function saveUnit(_prev: UnitState, formData: FormData): Promise<Un
     beds: formData.get('beds'),
     bathrooms: formData.get('bathrooms'),
     basePrice: formData.get('basePrice'),
-    cleaningFee: formData.get('cleaningFee') || 0,
     minNights: formData.get('minNights') || 1,
     maxNights: formData.get('maxNights') || 0,
     advanceNotice: formData.get('advanceNotice') || 0,
@@ -107,7 +96,6 @@ export async function saveUnit(_prev: UnitState, formData: FormData): Promise<Un
     beds: d.beds,
     bathrooms: d.bathrooms,
     base_price_usd: d.basePrice,
-    cleaning_fee_usd: d.cleaningFee,
     min_nights: d.minNights,
     // 0 en el formulario significa «sin máximo».
     max_nights: d.maxNights > 0 ? d.maxNights : null,
@@ -249,6 +237,27 @@ export async function uploadPhoto(_prev: UnitState, formData: FormData): Promise
   }
 
   const supabase = await createClient()
+
+  /*
+    Cuántas hay ya. Se cuenta antes de subir el archivo: rechazar después
+    dejaría el archivo ocupando cuota sin fila que lo referencie, que es el
+    mismo agujero que tapa el borrado de más abajo.
+
+    `head: true` pide solo el total, sin traer las filas.
+  */
+  const { count } = await supabase
+    .from('unit_media')
+    .select('id', { count: 'exact', head: true })
+    .eq('unit_id', unitId.data)
+
+  if ((count ?? 0) >= MAX_PHOTOS_PER_UNIT) {
+    return {
+      error:
+        `Esta unidad ya tiene ${MAX_PHOTOS_PER_UNIT} fotos, que es el máximo. ` +
+        'Borra alguna para subir otra.',
+    }
+  }
+
   const admin = createAdminClient()
   const path = `${unitId.data}/${randomUUID()}.${EXTENSIONS[photo.type]}`
 

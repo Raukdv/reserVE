@@ -18,11 +18,11 @@ export default async function ContentPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contenido</h1>
-          <p className="mt-1 text-sm text-ink/55">
+          <p className="mt-1 text-descripcion text-ink/70">
             Los textos de la página pública. Cada sección se guarda por separado.
           </p>
         </div>
-        <Link href="/" target="_blank" className="text-sm text-ink/50 underline">
+        <Link href="/" target="_blank" className="text-sm text-ink/70 underline">
           Ver la web
         </Link>
       </div>
@@ -31,7 +31,7 @@ export default async function ContentPage() {
         <ContentSections content={content} />
       </div>
 
-      <p className="mt-8 text-xs text-ink/45">
+      <p className="mt-8 text-xs text-ink/60">
         El nombre, el teléfono y la política de cancelación se editan en{' '}
         <Link href="/admin/ajustes" className="underline">
           Ajustes

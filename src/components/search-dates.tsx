@@ -65,7 +65,7 @@ export function SearchDates({
       }`}
     >
       <label className="block">
-        <span className="mb-1 block text-xs text-ink/50">Entrada</span>
+        <span className="mb-1 block text-xs font-medium text-ink">Entrada</span>
         <input
           type="date"
           value={from}
@@ -76,7 +76,7 @@ export function SearchDates({
       </label>
 
       <label className="block">
-        <span className="mb-1 block text-xs text-ink/50">Salida</span>
+        <span className="mb-1 block text-xs font-medium text-ink">Salida</span>
         <input
           type="date"
           value={to}
@@ -87,7 +87,7 @@ export function SearchDates({
       </label>
 
       <label className="block">
-        <span className="mb-1 block text-xs text-ink/50">Huéspedes</span>
+        <span className="mb-1 block text-xs font-medium text-ink">Huéspedes</span>
         <select
           value={guests}
           onChange={(e) => setGuests(Number(e.target.value))}

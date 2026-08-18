@@ -166,6 +166,41 @@ agotarse las imágenes dejan de servirse durante 30 días.
 Las imágenes se suben ya redimensionadas y se sirven estáticas. Nada de
 `next/image` con optimización en servidor.
 
+### 3.5.1 El peso de una foto lo marca el egreso, no el disco
+
+*Motivo: 5 GB de egreso al mes en Supabase.*
+
+Es el límite que aprieta antes que el gigabyte de almacenamiento, y se confunde
+con facilidad: una foto pesada «cabe», pero cada visitante que abre el catálogo
+se la lleva otra vez.
+
+| Peso por foto | Caben en 1 GB | Cargas en 5 GB/mes |
+|---|---|---|
+| 400 KB (hoy)  | ~2.600 | ~13.000 |
+| 1 MB          | ~1.000 | ~5.000  |
+| 5 MB          | ~200   | ~1.000  |
+
+A 5 MB por foto, cien visitantes que miren diez imágenes cada uno agotan el
+egreso del mes. A 400 KB hacen falta más de mil.
+
+Los topes viven en `src/lib/media-limits.ts`, con el porqué de cada número:
+
+- **400 KB por foto**, ya comprimida. El bucket admite 600 KB (ver `0013`) para
+  que un archivo que el servidor acepta no lo rechace el almacenamiento por un
+  redondeo y deje la subida a medias.
+- **40 fotos por unidad.** Alto a propósito: no está para racionar al operador
+  —el gasto lo marca el peso, no la cantidad— sino para que ninguna lista crezca
+  sin techo. Cubre fotografiar por ambientes, que es lo que se hace en Airbnb y
+  Booking y se va a veinte o treinta sin esfuerzo.
+- **Cinco en la ficha pública.** Las demás solo se ven en el panel, así que casi
+  no generan tráfico.
+
+Con plan de pago el egreso deja de ser el techo y estos números pueden subir. Lo
+que no cambia es que una foto de 5 MB en una web es una foto sin optimizar: el
+visitante la paga en tiempo de carga aunque el negocio no la pague en factura.
+
+Falta contrastarlo con uso real. Ver `PENDIENTES.md`.
+
 ### 3.6 Los comprobantes se comprimen antes de subir
 
 *Motivo: 1 GB de Storage en Supabase.*

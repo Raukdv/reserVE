@@ -29,12 +29,12 @@ export function BookingForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-sm text-ink/60">Nombre completo</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Nombre completo</span>
           <input name="name" required autoComplete="name" className={field} />
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">Correo</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Correo</span>
           <input
             name="email"
             type="email"
@@ -42,21 +42,21 @@ export function BookingForm({
             autoComplete="email"
             className={field}
           />
-          <span className="mt-1 block text-xs text-ink/45">
+          <span className="mt-1 block text-xs text-ink/60">
             Ahí te llega el enlace para gestionar la reserva.
           </span>
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-ink/60">Teléfono / WhatsApp</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Teléfono / WhatsApp</span>
           <input name="phone" type="tel" autoComplete="tel" className={field} />
         </label>
 
         <DocumentInput name="document" label="Cédula o pasaporte" />
 
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-sm text-ink/60">
-            Comentarios <span className="text-ink/40">(opcional)</span>
+          <span className="mb-1 block text-sm font-medium text-ink">
+            Comentarios <span className="text-ink/60">(opcional)</span>
           </span>
           <textarea name="notes" rows={3} className={field} />
         </label>
@@ -76,7 +76,7 @@ export function BookingForm({
         {pending ? 'Reservando…' : 'Reservar y ver cómo pagar'}
       </button>
 
-      <p className="text-center text-xs text-ink/45">
+      <p className="text-center text-xs text-ink/60">
         Las fechas quedan retenidas a tu nombre. Todavía no se cobra nada.
       </p>
     </form>

@@ -160,6 +160,93 @@ vendibles para siempre.
 
 Un job periódico libera lo vencido desactivando el hold.
 
+### 8. La política de cancelación se publica generada, no redactada
+
+Es el único texto legal del sitio que además mueve dinero, y por eso no se
+escribe a mano en ninguna parte. `/legal/cancelacion` compone su cuerpo con
+`genericPolicy()` a partir de `app_settings.cancellation_tiers`, los mismos
+tramos que lee `cancellation_quote()` para decidir cuánto se devuelve. Regla y
+texto no pueden separarse porque son el mismo dato leído dos veces.
+
+Estuvo partido en dos: los tramos en Ajustes y un cuerpo libre en Contenido,
+apilados uno debajo del otro sin que nada comprobara que dijeran lo mismo. Nada
+impedía prometer allí un reembolso que el servidor no fuera a pagar. La
+migración `0021` absorbió ese texto en `app_settings` y borró la sección de
+Contenido.
+
+Lo que sigue siendo libre —el título y un texto de apoyo— vive junto a los
+tramos, y el editor muestra al lado la vista previa de lo que la web ya dice
+sola. Escribir la nota sin ver la promesa era la mitad del problema.
+
+**La política es una, y se elige por nombre.** Los tramos viven en la fila única
+de `app_settings`, así que nunca hubo forma de tener dos políticas a la vez; pero
+el editor las presentaba como fichas sueltas que se añaden y se quitan, y eso se
+leía como si se estuvieran apilando. Ahora se elige entre políticas con nombre
+—Flexible, Moderada, Limitada, Firme— y la escalera aparece debajo como
+consecuencia. El editor tramo a tramo sigue detrás de «Personalizada».
+
+Los nombres y los plazos se calcan de Airbnb, que rehízo su sistema el 1 de
+octubre de 2025. Se comprobó antes de tocar nada, porque la duda razonable era
+la contraria —que una escalera de varios escalones fuese rara— y resultó ser al
+revés: el anfitrión elige **una** política, pero las dos que más lo protegen son
+escaleras de tres escalones (100 % / 50 % / nada). Reducir el modelo a un único
+plazo habría dejado «Limitada» y «Firme» fuera de su alcance.
+
+`matchPreset()` resuelve qué política está puesta comparando la escalera por
+contenido, no guardando su nombre. Así una escalera creada antes de que
+existieran los presets se reconoce sola, y editar una hasta convertirla en otra
+la reetiqueta sin trucos.
+
+Los cargos son la parte fina. Por debajo del 100 % no lo decide el tramo sino la
+casilla `refundable` de cada cargo: los de monto marcados vuelven en la misma
+proporción que las noches conservadas, los de porcentaje siguen a su base, y los
+no reembolsables no vuelven nunca. El texto público dice exactamente eso y no
+nombra la limpieza, que es un cargo más desde que dejó de ser una columna
+(`0019`) y puede estar marcada de cualquiera de las dos formas.
+
+### 9. Las estadías a medias se señalan, no se cierran solas
+
+`expire_stale_bookings()` solo toca reservas `pending`. Una `confirmed` cuya
+fecha de salida ya pasó —el huésped no apareció, o llegó y nadie lo registró— se
+quedaba abierta para siempre, contando como activa en listados y ocupación.
+
+La tentación es que un cron las pase a `completed`. **No se hace**, y la razón es
+la misma por la que la salida se niega con saldo pendiente: cerrar una reserva
+cierra también una cobranza, y una que se cierra sola es una que nadie vuelve a
+mirar. Peor todavía en el otro caso, el del huésped que no apareció: marcarlo
+como incidencia decide si se retiene lo cobrado o se devuelve según la política,
+y eso no lo puede saber la aplicación.
+
+Es como lo resuelven los PMS. En el cierre de día un no-show no se cierra: se
+señala, y el auditor elige entre registrar la entrada, cancelar, o cobrar la
+penalización y cancelar. Tres caminos, todos humanos. La aplicación sabe **qué
+no se registró**, no **por qué**.
+
+Así que la señal se **deriva en la consulta** y no se escribe en ninguna parte:
+
+```sql
+status in ('confirmed', 'checked_in') and check_out < business_today()
+```
+
+Sale en «Requieren revisión», arriba del panel, y desaparece sola en cuanto el
+operador registra lo que faltaba. Sin fila que corregir, sin estado mal grabado
+que arrastrar, y sin un cron que pueda equivocarse en silencio.
+
+El corte es `check_out` y no `check_in` a propósito: hasta la fecha de salida el
+huésped todavía puede aparecer, y avisar el mismo día de llegada sería ruido
+diario.
+
+### 9.1 El día del negocio también se calcula en Next
+
+`business_today()` resolvía esto en la base, pero el panel componía sus consultas
+con `new Date().toISOString()`, que es UTC. Venezuela va cuatro horas por detrás,
+así que entre las 8 de la noche y la medianoche «hoy» ya era mañana: las
+«llegadas de hoy» mostraban las del día siguiente durante las cuatro horas de más
+uso, y la señal de arriba se habría disparado con un día de antelación.
+
+`businessToday()` en `src/lib/business-date.ts` es la contraparte en Next, y lee
+`BUSINESS_TIMEZONE` — que estaba declarada y sin usar.
+
 ## Modelo de datos
 
 ```
@@ -227,7 +314,7 @@ Solo `approved` cuenta para el saldo. La bandeja del administrador es el conjunt
 | `/alojamientos/[slug]` | Galería, amenities, calendario, precio en vivo |
 | `/reservar/[unitId]` | Datos del huésped → método de pago → reporte de comprobante |
 | `/reserva/[code]` | Consulta y gestión por link, sin cuenta obligatoria |
-| `/legal/*` | Condiciones, política de cancelación, privacidad |
+| `/legal/*` | Condiciones y privacidad, editables. Cancelación se genera desde los tramos |
 
 **Administración** (`/admin`, protegido por rol)
 
@@ -239,8 +326,8 @@ Solo `approved` cuenta para el saldo. La bandeja del administrador es el conjunt
 | `/admin/pagos` | ⭐ Bandeja de verificación: comprobante, monto declarado vs esperado, aprobar/rechazar |
 | `/admin/unidades` | CRUD, fotos, amenities, reglas |
 | `/admin/tarifas` | Temporadas, mínimo de noches |
-| `/admin/contenido` | Editar las secciones del home sin tocar código |
-| `/admin/ajustes` | Datos del negocio, políticas, anticipo, IGTF |
+| `/admin/contenido` | Editar las secciones del home y los legales libres |
+| `/admin/ajustes` | Datos del negocio, cobro, políticas de cancelación, IGTF |
 
 Las dos pantallas que definen el producto son el **calendario timeline** y la
 **bandeja de pagos**. Son las que el operador abre todos los días.

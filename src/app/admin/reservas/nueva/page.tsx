@@ -19,12 +19,12 @@ export default async function NewBookingPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8">
-      <Link href="/admin/reservas" className="text-sm text-ink/50 hover:underline">
+      <Link href="/admin/reservas" className="text-sm text-ink/70 hover:underline">
         ← Reservas
       </Link>
 
       <h1 className="mt-4 text-2xl font-semibold tracking-tight">Nueva reserva</h1>
-      <p className="mt-2 text-sm text-ink/55">
+      <p className="mt-2 text-descripcion text-ink/70">
         Para las que entran por teléfono, WhatsApp o en el mostrador, donde el huésped no
         usa la web.
       </p>
@@ -42,7 +42,7 @@ export default async function NewBookingPage() {
           <NewBookingForm units={units} />
         </div>
       ) : (
-        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/50">
+        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
           No hay unidades creadas todavía.
         </p>
       )}

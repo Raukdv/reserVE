@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { usd, ves, dateLabel } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { UnitThumb } from '@/components/unit-thumb'
+import { unitCovers } from '@/lib/media'
 import { BookingForm } from './booking-form'
 import type { Quote } from '@/types/database'
 
@@ -55,6 +56,7 @@ export default async function CheckoutPage({
     .single()
 
   const businessName = settings?.business_name ?? 'reserVE'
+  const cover = (await unitCovers([unit.id])).get(unit.id)
 
   // Sin fechas no hay nada que reservar: se devuelve al detalle en vez de mostrar
   // un formulario que fallaría al enviarse.
@@ -64,7 +66,7 @@ export default async function CheckoutPage({
         <SiteHeader businessName={businessName} />
         <main className="mx-auto max-w-2xl px-6 py-20 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Elige tus fechas</h1>
-          <p className="mt-3 text-ink/60">
+          <p className="mt-3 text-ink/70">
             Necesitamos la entrada y la salida para calcular el total.
           </p>
           <Link
@@ -93,7 +95,7 @@ export default async function CheckoutPage({
         <SiteHeader businessName={businessName} />
         <main className="mx-auto max-w-2xl px-6 py-20 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">No podemos reservar eso</h1>
-          <p className="mt-3 text-ink/60">
+          <p className="mt-3 text-ink/70">
             {REASONS[quote?.error ?? ''] ?? 'Esa combinación no está disponible.'}
           </p>
           <Link
@@ -113,7 +115,7 @@ export default async function CheckoutPage({
       <SiteHeader businessName={businessName} />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <Link href={`/alojamientos/${slug}`} className="text-sm text-ink/50 hover:underline">
+        <Link href={`/alojamientos/${slug}`} className="text-sm text-ink/70 hover:underline">
           ← {unit.name}
         </Link>
 
@@ -129,15 +131,20 @@ export default async function CheckoutPage({
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
-              <UnitThumb slug={unit.slug} className="aspect-[16/9] w-full" />
+              <UnitThumb
+                slug={unit.slug}
+                src={cover?.url}
+                alt={cover?.alt ?? unit.name}
+                className="aspect-[16/9] w-full"
+              />
 
               <div className="space-y-4 p-6">
                 <div>
                   <p className="font-medium">{unit.name}</p>
-                  <p className="mt-1 text-sm text-ink/55">
+                  <p className="mt-1 text-descripcion text-ink/70">
                     {dateLabel(from)} → {dateLabel(to)}
                   </p>
-                  <p className="text-sm text-ink/55">
+                  <p className="text-sm text-ink/70">
                     {quote.nights} noche{quote.nights > 1 ? 's' : ''} · {guests} huésped
                     {guests > 1 ? 'es' : ''}
                   </p>
@@ -148,15 +155,21 @@ export default async function CheckoutPage({
                     label={`${usd(unit.base_price_usd)} × ${quote.nights} noches`}
                     value={usd(quote.subtotal_usd)}
                   />
-                  {quote.cleaning_fee_usd > 0 && (
-                    <Line label="Limpieza" value={usd(quote.cleaning_fee_usd)} />
-                  )}
+                  {quote.fees?.map((fee) => (
+                    <Line
+                      key={fee.name}
+                      label={
+                        fee.kind === 'percent' ? `${fee.name} (${fee.rate} %)` : fee.name
+                      }
+                      value={usd(fee.amount_usd)}
+                    />
+                  ))}
                   <div className="flex justify-between border-t border-ink/10 pt-3 font-medium">
                     <dt>Total</dt>
                     <dd>{usd(quote.total_usd)}</dd>
                   </div>
-                  <p className="text-right text-xs text-ink/50">{ves(quote.total_ves)}</p>
-                  <p className="text-right text-[11px] text-ink/40">
+                  <p className="text-right text-xs text-ink/70">{ves(quote.total_ves)}</p>
+                  <p className="text-right text-[11px] text-ink/60">
                     A tasa BCV del {dateLabel(quote.rate_date)}
                   </p>
                 </dl>
@@ -169,7 +182,7 @@ export default async function CheckoutPage({
                 </div>
 
                 {settings?.cancellation_policy && (
-                  <p className="text-xs leading-relaxed text-ink/50">
+                  <p className="text-xs leading-relaxed text-ink/70">
                     {settings.cancellation_policy}
                   </p>
                 )}
@@ -190,7 +203,7 @@ export default async function CheckoutPage({
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-ink/65">
+    <div className="flex justify-between text-ink/70">
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>

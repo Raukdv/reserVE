@@ -43,7 +43,7 @@ export default async function SettingsPage() {
   if (!settings) {
     return (
       <main className="mx-auto max-w-3xl px-6 py-12">
-        <p className="text-sm text-ink/60">No se pudieron cargar los ajustes.</p>
+        <p className="text-sm text-ink/70">No se pudieron cargar los ajustes.</p>
       </main>
     )
   }
@@ -64,8 +64,8 @@ export default async function SettingsPage() {
 
       {/* Pasarelas */}
       <section className="mt-10">
-        <h2 className="text-sm font-medium">Pasarelas de pago</h2>
-        <p className="mt-1 text-sm text-ink/50">
+        <h2 className="text-base font-semibold">Pasarelas de pago</h2>
+        <p className="mt-1 text-descripcion text-ink/70">
           Cobros que se confirman solos, sin verificación manual. El reporte de comprobante
           no desaparece cuando alguna se active: siempre habrá quien pague por Zelle.
         </p>
@@ -82,13 +82,13 @@ export default async function SettingsPage() {
                 </span>
               </div>
 
-              <p className="mt-2 text-sm leading-relaxed text-ink/60">{p.note}</p>
+              <p className="mt-2 text-sm leading-relaxed text-ink/70">{p.note}</p>
 
               <p className="mt-3 flex flex-wrap gap-1.5">
                 {p.methods.map((m) => (
                   <span
                     key={m}
-                    className="rounded-full bg-ink/6 px-2 py-0.5 text-[11px] text-ink/55"
+                    className="rounded-full bg-ink/6 px-2 py-0.5 text-[11px] text-ink/70"
                   >
                     {METHODS[m].label}
                   </span>
@@ -97,12 +97,12 @@ export default async function SettingsPage() {
 
               {p.requires.length > 0 && (
                 <>
-                  <p className="mt-4 text-xs font-medium uppercase tracking-wider text-ink/40">
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-ink/60">
                     Falta
                   </p>
                   <ul className="mt-2 space-y-1">
                     {p.requires.map((r) => (
-                      <li key={r} className="flex gap-2 text-sm text-ink/60">
+                      <li key={r} className="flex gap-2 text-sm text-ink/70">
                         <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-clay" />
                         {r}
                       </li>
@@ -117,8 +117,8 @@ export default async function SettingsPage() {
 
       {/* Correo */}
       <section className="mt-10">
-        <h2 className="text-sm font-medium">Correo</h2>
-        <p className="mt-1 text-sm text-ink/50">
+        <h2 className="text-base font-semibold">Correo</h2>
+        <p className="mt-1 text-descripcion text-ink/70">
           El código de la reserva solo vive en la URL y en el correo. Si a un huésped no le
           llegó, reenvíaselo desde aquí.
         </p>
@@ -127,7 +127,7 @@ export default async function SettingsPage() {
           <ResendLinkForm />
         </div>
 
-        <h3 className="mt-8 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-ink/45">
+        <h3 className="mt-8 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-ink/60">
           Últimos envíos
           {failed > 0 && (
             <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] normal-case tracking-normal text-red-800">
@@ -142,17 +142,17 @@ export default async function SettingsPage() {
               <li key={e.id} className="flex flex-wrap justify-between gap-3 px-5 py-3 text-sm">
                 <span className="min-w-0">
                   <span className={e.ok ? '' : 'text-red-700'}>{EMAIL_LABEL[e.kind]}</span>
-                  <span className="ml-2 text-ink/50">{e.recipient}</span>
+                  <span className="ml-2 text-ink/70">{e.recipient}</span>
                   {!e.ok && e.detail && (
                     <span className="mt-0.5 block text-xs text-red-700">{e.detail}</span>
                   )}
                 </span>
-                <span className="text-xs text-ink/40">{stamp.format(new Date(e.sent_at))}</span>
+                <span className="text-xs text-ink/60">{stamp.format(new Date(e.sent_at))}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-3 rounded-2xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/45">
+          <p className="mt-3 rounded-2xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/60">
             Todavía no se ha enviado ningún correo.
           </p>
         )}

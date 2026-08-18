@@ -42,11 +42,11 @@ export function NewBookingForm({
   return (
     <form action={action} className="space-y-8">
       <section>
-        <h2 className="text-sm font-medium">Estadía</h2>
+        <h2 className="text-base font-semibold">Estadía</h2>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block lg:col-span-2">
-            <span className="mb-1 block text-sm text-ink/60">Unidad</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Unidad</span>
             <select
               name="unitId"
               required
@@ -63,7 +63,7 @@ export function NewBookingForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">Entrada</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Entrada</span>
             <input
               name="checkIn"
               type="date"
@@ -75,7 +75,7 @@ export function NewBookingForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">Salida</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Salida</span>
             <input
               name="checkOut"
               type="date"
@@ -88,7 +88,7 @@ export function NewBookingForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">Huéspedes</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Huéspedes</span>
             <select name="guests" defaultValue={2} className={field}>
               {Array.from({ length: unit?.max_guests ?? 6 }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
@@ -99,7 +99,7 @@ export function NewBookingForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">Descuento (USD)</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Descuento (USD)</span>
             <input
               name="discount"
               type="number"
@@ -108,13 +108,13 @@ export function NewBookingForm({
               defaultValue={0}
               className={field}
             />
-            <span className="mt-1 block text-xs text-ink/45">
+            <span className="mt-1 block text-xs text-ink/60">
               Se resta del total calculado.
             </span>
           </label>
         </div>
 
-        <p className="mt-3 text-xs text-ink/45">
+        <p className="mt-3 text-xs text-ink/60">
           El precio lo calcula el servidor con las tarifas y temporadas de la unidad. Como
           operador puedes cerrar para hoy mismo y saltarte el mínimo de noches, pero no la
           disponibilidad: si las fechas están ocupadas, no se crea.
@@ -122,17 +122,17 @@ export function NewBookingForm({
       </section>
 
       <section className="border-t border-ink/10 pt-8">
-        <h2 className="text-sm font-medium">Huésped</h2>
+        <h2 className="text-base font-semibold">Huésped</h2>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
-            <span className="mb-1 block text-sm text-ink/60">Nombre completo</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Nombre completo</span>
             <input name="name" required className={field} />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">
-              Correo <span className="text-ink/40">(opcional)</span>
+            <span className="mb-1 block text-sm font-medium text-ink">
+              Correo <span className="text-ink/60">(opcional)</span>
             </span>
             <input
               name="email"
@@ -144,19 +144,19 @@ export function NewBookingForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">Teléfono / WhatsApp</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Teléfono / WhatsApp</span>
             <input name="phone" type="tel" className={field} />
           </label>
 
           <DocumentInput name="document" label="Cédula o pasaporte" />
 
           <label className="block sm:col-span-2">
-            <span className="mb-1 block text-sm text-ink/60">Nota interna</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Nota interna</span>
             <textarea name="notes" rows={2} className={field} />
           </label>
         </div>
 
-        <p className="mt-3 text-xs text-ink/45">
+        <p className="mt-3 text-xs text-ink/60">
           Basta con el correo o el teléfono. Por WhatsApp lo normal es tener solo el
           teléfono, y no conviene inventar un correo: rebota y daña la reputación de envío
           del dominio.
@@ -182,13 +182,13 @@ export function NewBookingForm({
             />
             <span>
               Enviarle el correo con su enlace
-              <span className="mt-0.5 block text-xs text-ink/45">
+              <span className="mt-0.5 block text-xs text-ink/60">
                 Si ya quedaste con el huésped por WhatsApp, puedes ahorrártelo.
               </span>
             </span>
           </label>
         ) : (
-          <p className="text-sm text-ink/55">
+          <p className="text-sm text-ink/70">
             <strong className="font-medium text-ink">Sin correo no hay aviso.</strong>{' '}
             Al crearla te daremos el enlace para compartirlo por WhatsApp desde la ficha.
           </p>
@@ -209,7 +209,7 @@ export function NewBookingForm({
         >
           {pending ? 'Creando…' : 'Crear reserva'}
         </button>
-        <span className="text-sm text-ink/50">
+        <span className="text-sm text-ink/70">
           Queda pendiente. El cobro se registra en la ficha.
         </span>
       </div>

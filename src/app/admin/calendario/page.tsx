@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { parseRange } from '@/lib/format'
+import { businessToday } from '@/lib/business-date'
 import { BlockDates, type ActiveBlock } from '@/components/block-dates'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +36,7 @@ const TONE: Record<string, string> = {
   confirmed: 'bg-moss text-white',
   checked_in: 'bg-tide text-white',
   completed: 'bg-ink/25 text-ink',
-  block: 'bg-ink/15 text-ink/60',
+  block: 'bg-ink/15 text-ink/70',
 }
 
 type Cell = {
@@ -58,7 +59,10 @@ export default async function CalendarPage({
   const offsetRaw = Array.isArray(sp.offset) ? sp.offset[0] : sp.offset
   const offset = Number.isFinite(Number(offsetRaw)) ? Number(offsetRaw) : 0
 
-  const today = new Date(`${iso(new Date())}T00:00:00Z`)
+  // La rejilla arranca en el día del negocio, no en el de UTC: entre las 8 de
+  // la noche y la medianoche los dos no coinciden, y el calendario se abriría
+  // con la columna de «hoy» puesta en mañana.
+  const today = new Date(`${businessToday()}T00:00:00Z`)
   const start = addDays(today, offset * DAYS)
   const end = addDays(start, DAYS)
   const days = Array.from({ length: DAYS }, (_, i) => addDays(start, i))
@@ -172,7 +176,7 @@ export default async function CalendarPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Calendario</h1>
-          <p className="mt-1 text-sm text-ink/50">{DAYS} días desde el {iso(start)}</p>
+          <p className="mt-1 text-descripcion text-ink/70">{DAYS} días desde el {iso(start)}</p>
         </div>
 
         <div className="flex items-center gap-2 text-sm">
@@ -197,7 +201,7 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-4 text-xs text-ink/60">
+      <div className="mt-5 flex flex-wrap gap-4 text-xs text-ink/70">
         <Legend tone={TONE.pending} label="Pendiente de pago" />
         <Legend tone={TONE.confirmed} label="Confirmada" />
         <Legend tone={TONE.checked_in} label="Hospedado" />
@@ -214,7 +218,7 @@ export default async function CalendarPage({
             {monthSpans.map((m) => (
               <div
                 key={m.name}
-                className="border-r border-ink/10 px-2 py-1.5 text-xs text-ink/50 first-letter:uppercase"
+                className="border-r border-ink/10 px-2 py-1.5 text-xs text-ink/70 first-letter:uppercase"
                 style={{ width: `${m.span * DAY_WIDTH}px` }}
               >
                 {m.name}
@@ -224,7 +228,7 @@ export default async function CalendarPage({
 
           {/* Días */}
           <div className="flex border-b border-ink/10">
-            <div className="w-44 shrink-0 border-r border-ink/10 px-3 py-2 text-xs font-medium text-ink/50">
+            <div className="w-44 shrink-0 border-r border-ink/10 px-3 py-2 text-xs font-medium text-ink/70">
               Unidad
             </div>
             {days.map((d) => {
@@ -237,7 +241,7 @@ export default async function CalendarPage({
                     key === todayIso ? 'bg-clay/20 font-semibold' : weekend ? 'bg-ink/3' : ''
                   }`}
                 >
-                  <div className="text-ink/35">{dayLetter.format(d)}</div>
+                  <div className="text-ink/60">{dayLetter.format(d)}</div>
                   <div>{dayNum.format(d)}</div>
                 </div>
               )
@@ -298,7 +302,7 @@ export default async function CalendarPage({
       </div>
 
       {(units ?? []).length === 0 && (
-        <p className="mt-6 text-sm text-ink/50">No hay unidades creadas todavía.</p>
+        <p className="mt-6 text-descripcion text-ink/70">No hay unidades creadas todavía.</p>
       )}
     </main>
   )

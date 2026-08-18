@@ -2,15 +2,14 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getRateSummary } from '@/lib/rates'
 import { usd, dateLabel } from '@/lib/format'
+import { businessToday, daysBetween } from '@/lib/business-date'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Resumen' }
 
-const iso = (d: Date) => d.toISOString().slice(0, 10)
-
 export default async function AdminHome() {
   const supabase = await createClient()
-  const today = iso(new Date())
+  const today = businessToday()
 
   const [
     { count: pendingPayments },
@@ -20,6 +19,7 @@ export default async function AdminHome() {
     { data: departures },
     rates,
     { data: upcoming },
+    { data: stalled },
   ] = await Promise.all([
     supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'verifying'),
     supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -42,6 +42,28 @@ export default async function AdminHome() {
       .in('status', ['confirmed', 'pending'])
       .order('check_in')
       .limit(8),
+
+    /*
+      Estadías que se quedaron a medias.
+
+      Se deriva en la consulta, no se marca en la base: así el aviso desaparece
+      solo en cuanto el operador registra lo que faltaba, sin dejar un estado
+      escrito que luego haya que corregir. Es como lo resuelven los PMS —el
+      cierre de día señala discrepancias y las resuelve una persona— y evita lo
+      contrario: que un proceso automático cierre una reserva y con ella una
+      cobranza que nadie volverá a mirar.
+
+      El corte es `check_out` y no `check_in` a propósito: hasta la fecha de
+      salida el huésped todavía puede aparecer, y avisar el mismo día de llegada
+      sería ruido diario.
+    */
+    supabase
+      .from('bookings')
+      .select('code, guest_name, check_in, check_out, status, total_usd, units(name)')
+      .in('status', ['confirmed', 'checked_in'])
+      .lt('check_out', today)
+      .order('check_out')
+      .limit(20),
   ])
 
   const unitName = (u: unknown) => {
@@ -59,6 +81,61 @@ export default async function AdminHome() {
           oficial es del {rates.rateDate ?? 'nunca'}. No se puede cotizar en bolívares
           hasta que el alimentador vuelva a correr — revisa el cron.
         </p>
+      )}
+
+      {stalled && stalled.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-clay/60 bg-white p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold">Requieren revisión</h2>
+            <span className="text-xs text-ink/60">
+              {stalled.length} estadía{stalled.length === 1 ? '' : 's'} sin cerrar
+            </span>
+          </div>
+          <p className="mt-1 text-descripcion text-ink/70">
+            Pasó la fecha de salida y la reserva sigue abierta. El sistema no las cierra
+            solo: puede que el huésped no apareciera, que llegara y nadie lo registrara, o
+            que se fuera sin avisar. Cada una se decide mirándola.
+          </p>
+
+          <ul className="mt-4 divide-y divide-ink/8">
+            {stalled.map((b) => {
+              const days = daysBetween(b.check_out, today)
+              return (
+                <li key={b.code} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
+                  <Link
+                    href={`/admin/reservas/${b.code}`}
+                    className="font-mono text-xs underline"
+                  >
+                    {b.code}
+                  </Link>
+                  <span className="text-sm">{b.guest_name}</span>
+                  <span className="text-sm text-ink/70">{unitName(b.units)}</span>
+
+                  <span className="ml-auto text-sm text-ink/70">
+                    {/*
+                      Se nombra lo que falta, no un diagnóstico: la app sabe qué
+                      no se registró, no por qué. Llamarlo «no-show» sería
+                      decidir por el operador, y de eso depende si se devuelve
+                      dinero o se retiene.
+                    */}
+                    {b.status === 'confirmed'
+                      ? 'Nunca se marcó la entrada'
+                      : 'Entró y no se marcó la salida'}
+                    {' · '}
+                    <span className="text-ink">
+                      {days === 1 ? 'salió ayer' : `hace ${days} días`}
+                    </span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+
+          <p className="mt-4 text-xs text-ink/60">
+            Se resuelven en la ficha: marcar la entrada si llegó, la salida si se fue, o
+            cancelar. El aviso desaparece solo al registrarlo.
+          </p>
+        </section>
       )}
 
       <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -93,7 +170,7 @@ export default async function AdminHome() {
       </dl>
 
       {rates.gap !== null && rates.gap > 0.05 && (
-        <p className="mt-4 text-xs text-ink/50">
+        <p className="mt-4 text-xs text-ink/70">
           Los cobros en bolívares van a tasa BCV por obligación legal, así que la brecha
           del {(rates.gap * 100).toFixed(1)}% la absorben tus tarifas en USD. Si te
           aprieta, el ajuste correcto es el precio de lista — no la tasa.
@@ -107,7 +184,7 @@ export default async function AdminHome() {
               {arrivals.map((b) => (
                 <li key={b.code} className="flex justify-between gap-4 py-3 text-sm">
                   <span>{b.guest_name}</span>
-                  <span className="text-ink/50">{unitName(b.units)}</span>
+                  <span className="text-ink/70">{unitName(b.units)}</span>
                 </li>
               ))}
             </ul>
@@ -122,7 +199,7 @@ export default async function AdminHome() {
               {departures.map((b) => (
                 <li key={b.code} className="flex justify-between gap-4 py-3 text-sm">
                   <span>{b.guest_name}</span>
-                  <span className="text-ink/50">{unitName(b.units)}</span>
+                  <span className="text-ink/70">{unitName(b.units)}</span>
                 </li>
               ))}
             </ul>
@@ -136,7 +213,7 @@ export default async function AdminHome() {
         {upcoming && upcoming.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-ink/45">
+              <tr className="text-left text-xs text-ink/60">
                 <th className="pb-2 font-normal">Código</th>
                 <th className="pb-2 font-normal">Huésped</th>
                 <th className="pb-2 font-normal">Unidad</th>
@@ -162,8 +239,8 @@ export default async function AdminHome() {
                     {b.code}
                   </td>
                   <td className="py-3">{b.guest_name}</td>
-                  <td className="py-3 text-ink/60">{unitName(b.units)}</td>
-                  <td className="py-3 text-ink/60">
+                  <td className="py-3 text-ink/70">{unitName(b.units)}</td>
+                  <td className="py-3 text-ink/70">
                     {dateLabel(b.check_in)} → {dateLabel(b.check_out)}
                   </td>
                   <td className="py-3 text-right">{usd(b.total_usd)}</td>
@@ -201,9 +278,9 @@ function Stat({
         highlight ? 'border-clay/60' : 'border-ink/10'
       } ${href ? 'hover:border-ink/30' : ''}`}
     >
-      <p className="text-sm text-ink/50">{label}</p>
+      <p className="text-sm text-ink/70">{label}</p>
       <p className="mt-1 text-3xl font-semibold">{value}</p>
-      {hint && <p className="mt-1 text-xs text-ink/40">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-ink/60">{hint}</p>}
     </div>
   )
   return href ? <Link href={href}>{body}</Link> : body
@@ -220,14 +297,14 @@ function Panel({
 }) {
   return (
     <section className={`rounded-2xl border border-ink/10 bg-white p-6 ${className}`}>
-      <h2 className="text-sm font-medium">{title}</h2>
+      <h2 className="text-base font-semibold">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
   )
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-6 text-center text-sm text-ink/40">{children}</p>
+  return <p className="py-6 text-center text-sm text-ink/60">{children}</p>
 }
 
 // Mismos tonos que el calendario, en versión suave para texto sobre fondo claro.
@@ -235,12 +312,12 @@ const PILL: Record<string, { label: string; tone: string }> = {
   pending: { label: 'Pendiente', tone: 'bg-amber-100 text-amber-900' },
   confirmed: { label: 'Confirmada', tone: 'bg-moss/15 text-moss' },
   checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
-  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/60' },
-  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/60' },
-  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/60' },
+  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
+  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
+  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
 }
 
 function StatusPill({ status }: { status: string }) {
-  const pill = PILL[status] ?? { label: status, tone: 'bg-ink/8 text-ink/60' }
+  const pill = PILL[status] ?? { label: status, tone: 'bg-ink/8 text-ink/70' }
   return <span className={`rounded-full px-2.5 py-1 text-xs ${pill.tone}`}>{pill.label}</span>
 }

@@ -120,7 +120,7 @@ export function CollectionSummary({
           )}
         </div>
 
-        <p className="mt-2.5 text-xs text-ink/55">
+        <p className="mt-2.5 text-xs text-ink/70">
           {depositMet ? (
             <>
               Anticipo del {Math.round(depositRatio * 100)}% ({usd(depositUsd)}){' '}
@@ -154,8 +154,8 @@ function Line({
   tone?: string
 }) {
   return (
-    <div className={`flex justify-between gap-4 ${muted ? 'text-ink/45' : ''}`}>
-      <dt className={muted ? '' : 'text-ink/60'}>{label}</dt>
+    <div className={`flex justify-between gap-4 ${muted ? 'text-ink/60' : ''}`}>
+      <dt className={muted ? '' : 'text-ink/70'}>{label}</dt>
       <dd className={`${strong ? 'font-medium' : ''} ${tone ?? ''}`}>{value}</dd>
     </div>
   )

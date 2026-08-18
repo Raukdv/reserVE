@@ -15,16 +15,16 @@ export function UnitForm({ unit }: { unit?: Row<'units'> }) {
       {unit && <input type="hidden" name="id" value={unit.id} />}
 
       <section>
-        <h2 className="text-sm font-medium">Identidad</h2>
+        <h2 className="text-base font-semibold">Identidad</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">Nombre</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Nombre</span>
             <input name="name" required defaultValue={unit?.name} className={field} />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-ink/60">
-              Dirección web <span className="text-ink/40">(opcional)</span>
+            <span className="mb-1 block text-sm font-medium text-ink">
+              Dirección web <span className="text-ink/60">(opcional)</span>
             </span>
             <input
               name="slug"
@@ -32,14 +32,14 @@ export function UnitForm({ unit }: { unit?: Row<'units'> }) {
               placeholder="se genera del nombre"
               className={`${field} font-mono text-xs`}
             />
-            <span className="mt-1 block text-xs text-ink/45">
+            <span className="mt-1 block text-xs text-ink/60">
               /alojamientos/<strong>{unit?.slug ?? '…'}</strong>
               {unit && ' — cambiarla rompe los enlaces ya compartidos'}
             </span>
           </label>
 
           <label className="block sm:col-span-2">
-            <span className="mb-1 block text-sm text-ink/60">Descripción</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Descripción</span>
             <textarea
               name="description"
               rows={4}
@@ -51,7 +51,7 @@ export function UnitForm({ unit }: { unit?: Row<'units'> }) {
       </section>
 
       <section className="border-t border-ink/10 pt-8">
-        <h2 className="text-sm font-medium">Capacidad</h2>
+        <h2 className="text-base font-semibold">Capacidad</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-4">
           <Number name="maxGuests" label="Huéspedes" value={unit?.max_guests ?? 2} min={1} />
           <Number name="bedrooms" label="Habitaciones" value={unit?.bedrooms ?? 1} min={0} />
@@ -67,7 +67,7 @@ export function UnitForm({ unit }: { unit?: Row<'units'> }) {
       </section>
 
       <section className="border-t border-ink/10 pt-8">
-        <h2 className="text-sm font-medium">Precio</h2>
+        <h2 className="text-base font-semibold">Precio</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Number
             name="basePrice"
@@ -77,19 +77,20 @@ export function UnitForm({ unit }: { unit?: Row<'units'> }) {
             step={0.01}
             hint="Las temporadas la sobreescriben en las fechas que cubran."
           />
-          <Number
-            name="cleaningFee"
-            label="Limpieza (USD)"
-            value={unit?.cleaning_fee_usd ?? 0}
-            min={0}
-            step={0.01}
-            hint="Se cobra una vez por estadía."
-          />
         </div>
+        {/*
+          La limpieza dejó de ser un campo aquí: es un cargo más, con su propio
+          bloque abajo. Tener las dos cosas hacía que editar este campo pareciera
+          cambiar el precio sin cambiarlo.
+        */}
+        <p className="mt-3 text-xs text-ink/60">
+          La limpieza y cualquier otro cargo se configuran más abajo, en{' '}
+          <strong className="font-medium text-ink/70">Cargos de esta unidad</strong>.
+        </p>
       </section>
 
       <section className="border-t border-ink/10 pt-8">
-        <h2 className="text-sm font-medium">Reglas de estadía</h2>
+        <h2 className="text-base font-semibold">Reglas de estadía</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <Number
             name="minNights"
@@ -131,7 +132,7 @@ export function UnitForm({ unit }: { unit?: Row<'units'> }) {
             />
             <span>
               Visible en el catálogo
-              <span className="mt-0.5 block text-xs text-ink/45">
+              <span className="mt-0.5 block text-xs text-ink/60">
                 Sin marcar no aparece en la web ni se puede reservar.
               </span>
             </span>
@@ -176,7 +177,7 @@ function Number({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm text-ink/60">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
       <input
         name={name}
         type="number"
@@ -185,7 +186,7 @@ function Number({
         defaultValue={value}
         className={field}
       />
-      {hint && <span className="mt-1 block text-xs text-ink/45">{hint}</span>}
+      {hint && <span className="mt-1 block text-xs text-ink/60">{hint}</span>}
     </label>
   )
 }

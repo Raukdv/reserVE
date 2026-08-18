@@ -57,7 +57,7 @@ export function BlockDates({
         className="flex w-full items-center justify-between px-5 py-3.5 text-left text-sm"
       >
         <span className="font-medium">Bloquear fechas</span>
-        <span className="flex items-center gap-3 text-ink/45">
+        <span className="flex items-center gap-3 text-ink/60">
           {blocks.length > 0 && (
             <span className="text-xs">
               {blocks.length} bloqueo{blocks.length > 1 ? 's' : ''} activo
@@ -72,7 +72,7 @@ export function BlockDates({
         <div className="border-t border-ink/10 p-5">
           <form action={action} className="grid gap-3 sm:grid-cols-[1.4fr_1fr_1fr_1.6fr_auto]">
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Unidad</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Unidad</span>
               <select name="unitId" required className={field} defaultValue="">
                 <option value="" disabled>
                   Elegir…
@@ -86,7 +86,7 @@ export function BlockDates({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Desde</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Desde</span>
               <input
                 name="from"
                 type="date"
@@ -98,7 +98,7 @@ export function BlockDates({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Hasta</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Hasta</span>
               <input
                 name="to"
                 type="date"
@@ -111,7 +111,7 @@ export function BlockDates({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs text-ink/50">Motivo</span>
+              <span className="mb-1 block text-xs font-medium text-ink">Motivo</span>
               <input
                 name="reason"
                 placeholder="Mantenimiento, uso personal…"
@@ -128,7 +128,7 @@ export function BlockDates({
             </button>
           </form>
 
-          <p className="mt-3 text-xs text-ink/45">
+          <p className="mt-3 text-xs text-ink/60">
             La noche de fin queda libre: bloquear del 10 al 14 inutiliza las noches 10, 11,
             12 y 13, y el 14 se puede vender como entrada.
           </p>
@@ -142,7 +142,7 @@ export function BlockDates({
 
           {blocks.length > 0 && (
             <>
-              <h3 className="mt-6 text-xs font-medium uppercase tracking-wider text-ink/45">
+              <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-ink/60">
                 Bloqueos activos
               </h3>
               <ul className="mt-2 divide-y divide-ink/8">
@@ -165,10 +165,10 @@ function BlockRow({ block }: { block: ActiveBlock }) {
     <li className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
       <span>
         <strong className="font-medium">{block.unitName}</strong>{' '}
-        <span className="text-ink/55">
+        <span className="text-ink/70">
           {label(block.from)} → {label(block.to)}
         </span>
-        {block.reason && <span className="text-ink/45"> · {block.reason}</span>}
+        {block.reason && <span className="text-ink/60"> · {block.reason}</span>}
       </span>
 
       <span className="flex items-center gap-3">
@@ -177,7 +177,7 @@ function BlockRow({ block }: { block: ActiveBlock }) {
           <input type="hidden" name="holdId" value={block.holdId} />
           <button
             disabled={pending}
-            className="text-xs text-ink/50 underline hover:text-ink disabled:opacity-50"
+            className="text-xs text-ink/70 underline hover:text-ink disabled:opacity-50"
           >
             {pending ? 'Liberando…' : 'Liberar'}
           </button>

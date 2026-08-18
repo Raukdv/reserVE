@@ -3,6 +3,57 @@
 Cambios acordados pero no aplicados todavía, con el contexto necesario para
 hacerlos sin volver a preguntar. Se borran de aquí al implementarse.
 
+Algunas entradas no son código sino **consultas informativas**: preguntas que
+hay que hacerle a alguien que opera de verdad antes de decidir. Van marcadas
+como tales, porque implementarlas sin la respuesta es adivinar.
+
+---
+
+## 🗣 Consulta — ¿al huésped que no aparece se le devuelve algo?
+
+**Para preguntar a operadores de alojamiento en Venezuela.** De la respuesta
+depende si hace falta escribir código o no.
+
+### Por qué se pregunta
+
+Hoy, cuando alguien no se presenta, la única salida es **cancelar**, que calcula
+el reembolso con la política de cancelación: si el tramo vigente dice 50 %, se le
+devuelve el 50 %. En hotelería un *no-show* suele tratarse distinto —se retiene
+lo cobrado— y por eso los PMS lo tienen como estado propio, separado de la
+cancelación. Ver `docs/funciones/night-audit.md`.
+
+No se ha construido ese estado a propósito: no se sabe si aquí se usa.
+
+### Qué preguntar exactamente
+
+1. **¿Al que reserva, paga el anticipo y no aparece, le devuelven algo?**
+   ¿Todo, una parte, nada?
+2. **¿Depende de si avisó?** Un «no llego» por WhatsApp la víspera, ¿se trata
+   como cancelación tardía o como no-show?
+3. **¿Cuánto esperan antes de darlo por perdido?** ¿La noche entera, hasta una
+   hora concreta, hasta el día siguiente?
+4. **¿Revenden la noche si el huésped no llega?** Si la respuesta es que casi
+   nunca —reserva anticipada, temporada— el no-show duele menos y quizá no
+   merece estado propio.
+5. **¿Lo distinguen en sus cuentas?** Si un no-show y una cancelación acaban en
+   la misma casilla del cuaderno, tampoco hacen falta dos estados aquí.
+
+### Qué se hace con cada respuesta
+
+- **«Se retiene todo, y lo contamos aparte»** → hace falta el estado `no_show`:
+  migración del enum `booking_status`, acción propia que libere las fechas sin
+  pasar por `cancellation_quote()`, y su casilla en los informes.
+- **«Se aplica la misma política que a una cancelación»** → no hay nada que
+  hacer. Lo actual ya lo cubre y el bloque «Requieren revisión» basta.
+- **«Depende, se habla con cada uno»** → tampoco hace falta estado nuevo, pero
+  quizá sí una nota libre en la reserva para dejar constancia de lo acordado.
+
+### Lo que ya está resuelto
+
+La detección. El panel señala las estadías que vencieron sin cerrarse y el
+operador decide. Esta consulta solo afecta a **qué opciones** tiene para
+decidir, no a si se entera.
+
 ---
 
 ## Devolver el `matcher` del middleware al abrir al público
@@ -27,22 +78,41 @@ regla 3.3.
 
 ---
 
-## `BUSINESS_TIMEZONE` no se usa
+## `BUSINESS_TIMEZONE` — conectada a medias
 
-Declarada en `.env.example` y en el esquema de `serverEnv()`, pero ningún código
-la lee: la zona aparece literal como `America/Caracas` en siete sitios entre el
-código y las migraciones.
+Estaba declarada en `.env.example` y en `serverEnv()` sin que ningún código la
+leyera. Ya la lee `businessToday()` en `src/lib/business-date.ts`, que es la
+contraparte en Next de `business_today()`: se añadió porque el panel calculaba
+«hoy» en UTC y, con Venezuela cuatro horas por detrás, entre las 8 de la noche y
+la medianoche enseñaba las llegadas de mañana.
 
-No tiene consecuencias hoy —el valor coincide— pero es una variable que promete
-algo que no cumple. Dos salidas honestas:
+Sigue apareciendo literal como `America/Caracas` en el resto del código —los
+formateadores de fecha, `cancellation.ts`, `bcv.ts`— y en las migraciones, donde
+no puede leer una variable de entorno.
 
-- **Conectarla**: pasarla a las funciones de formato de fecha y a
-  `business_today()`. Implica que el negocio pueda operar en otra zona, cosa que
-  hoy no se necesita.
-- **Quitarla**: borrarla de `.env.example` y de `serverEnv()`, y dejar la zona
-  fija con un comentario que explique por qué.
+Queda por decidir si merece la pena terminar de conectarla. Operar en otra zona
+exigiría además que `business_today()` y los plazos de cancelación la leyeran de
+la base, no del entorno, porque hoy Postgres tiene su propia copia del literal.
+Mientras el negocio sea uno solo y esté en Venezuela, el valor coincide y no hay
+consecuencia práctica.
 
-Lo segundo es más sincero mientras el negocio sea uno solo y esté en Venezuela.
+---
+
+## Revisar el flujo de cobro con el modelo de cargos ya puesto
+
+Los cargos —generales y por unidad, con porcentajes sobre base— entraron después
+de que el cobro estuviera construido. Conviene repasar con ese modelo delante:
+
+- **Reembolsos.** La app calcula cuánto devolver, pero no mueve el dinero: ni con
+  Stripe —hay que hacerlo desde su panel— ni con Zelle. ¿Se registra el reembolso
+  como un `payment` de tipo `refund`? Hoy ese valor del enum existe sin usarse.
+- **Anticipo sobre qué base.** El anticipo se calcula sobre el total con cargos
+  incluidos. ¿Es lo que se quiere, o debería excluir impuestos?
+- **IGTF.** Sigue siendo una bandera aparte en `app_settings`, anterior al modelo
+  de cargos. Podría ser un cargo de porcentaje más, con la salvedad de que solo
+  aplica a pagos en divisa, cosa que ningún cargo sabe hoy.
+- **`units.cleaning_fee_usd`.** Migrada a un cargo, pero la columna sigue ahí sin
+  usarse. Retirarla junto con las referencias que queden.
 
 ---
 
@@ -207,3 +277,35 @@ modelo —el rango `[)` deja libre la noche de salida— pero visualmente sugier
 ese día está ocupado entero.
 
 Abordarlo junto con arrastrar sobre la rejilla para bloquear fechas.
+
+---
+
+## Medir cuánto pesan de verdad las fotos
+
+Los topes de `src/lib/media-limits.ts` —400 KB por foto, 40 por unidad— salen de
+aritmética sobre los límites del plan gratuito, no de uso real. Con una sola foto
+subida el dato disponible es anecdótico: 218 KB, en la mitad del margen.
+
+Falta medirlo cuando el catálogo esté cargado de verdad, y esto es lo que hay que
+mirar:
+
+- **Peso medio real tras comprimir.** Si se queda muy por debajo de 400 KB, el
+  tope estorba menos de lo que parece y no hay nada que hacer. Si roza el techo,
+  o bien las fotos entran ya grandes, o bien 1600 px se queda corto para el tipo
+  de imagen que sube el operador.
+- **Cuántas sube por unidad.** Los 40 son un margen ancho, no una medida. Si el
+  operador se queda en ocho, sobra techo; si fotografía por ambientes —principal,
+  baños, sala, cocina, entrada, como hacen Airbnb y Booking— puede acercarse.
+- **Egreso mensual de Supabase.** Es el techo que aprieta antes que el
+  almacenamiento: 5 GB al mes en el plan gratuito. El panel de Supabase lo
+  reporta; contrastarlo con las visitas del mes dice cuánto cuesta cada visita en
+  ancho de banda.
+
+Con esos tres números, subir o bajar los topes deja de ser una apuesta. Hasta
+entonces, mejor anchos que estrechos: un tope que estorba se nota enseguida, uno
+que sobra no molesta a nadie.
+
+Relacionado: la ficha pública muestra cinco fotos. Si el operador sube treinta
+agrupadas por ambiente, hace falta decidir cómo se navegan —galería con más
+fotos, o agruparlas por estancia como Airbnb, que necesitaría una columna nueva
+en `unit_media`.

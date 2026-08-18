@@ -63,10 +63,7 @@ try {
        business_phone = '+58 414 901 2555',
        currency_display = 'both',
        default_deposit_ratio = 0.300,
-       pending_ttl_hours = 24,
-       cancellation_policy = 'Cancelación gratuita hasta 7 días antes de la llegada. '
-         || 'Entre 7 y 3 días, se retiene el 50% del anticipo. '
-         || 'Con menos de 3 días, el anticipo no es reembolsable.'
+       pending_ttl_hours = 24
      where id = true`,
   )
 
@@ -112,41 +109,45 @@ try {
     {
       name: 'Habitación Coral',
       slug: 'coral',
+      cleaning: 10,
       description:
         'Habitación matrimonial con vista parcial al mar, baño privado y aire acondicionado. '
         + 'Ideal para parejas.',
       max_guests: 2, bedrooms: 1, beds: 1, bathrooms: 1,
-      base_price_usd: 45, cleaning_fee_usd: 10, min_nights: 2,
+      base_price_usd: 45, min_nights: 2,
       amenities: ['wifi', 'aire', 'desayuno', 'vista-mar', 'planta', 'agua'],
     },
     {
       name: 'Habitación Manglar',
       slug: 'manglar',
+      cleaning: 10,
       description:
         'Habitación doble con dos camas individuales y ventana al jardín interior. '
         + 'Tranquila y fresca.',
       max_guests: 3, bedrooms: 1, beds: 2, bathrooms: 1,
-      base_price_usd: 38, cleaning_fee_usd: 10, min_nights: 2,
+      base_price_usd: 38, min_nights: 2,
       amenities: ['wifi', 'aire', 'desayuno', 'planta', 'agua'],
     },
     {
       name: 'Suite Bahía',
       slug: 'suite-bahia',
+      cleaning: 15,
       description:
         'Suite con terraza privada frente al mar, sala de estar, minibar y baño en mármol. '
         + 'La mejor vista de la posada.',
       max_guests: 4, bedrooms: 1, beds: 2, bathrooms: 1.5,
-      base_price_usd: 85, cleaning_fee_usd: 15, min_nights: 2,
+      base_price_usd: 85, min_nights: 2,
       amenities: ['wifi', 'aire', 'desayuno', 'vista-mar', 'piscina', 'planta', 'agua', 'tv'],
     },
     {
       name: 'Apartamento Ceiba',
       slug: 'ceiba',
+      cleaning: 25,
       description:
         'Apartamento independiente de dos habitaciones con cocina equipada y patio. '
         + 'Pensado para familias o estadías largas.',
       max_guests: 6, bedrooms: 2, beds: 3, bathrooms: 2,
-      base_price_usd: 110, cleaning_fee_usd: 25, min_nights: 3,
+      base_price_usd: 110, min_nights: 3,
       amenities: ['wifi', 'aire', 'cocina', 'estacionamiento', 'piscina', 'planta', 'agua', 'tv'],
     },
   ]
@@ -156,14 +157,23 @@ try {
     const { rows: [unit] } = await client.query(
       `insert into units (
          property_id, name, slug, description, max_guests, bedrooms, beds, bathrooms,
-         base_price_usd, cleaning_fee_usd, min_nights, advance_notice_days,
+         base_price_usd, min_nights, advance_notice_days,
          is_published, sort_order
-       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1,true,$12)
+       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,true,$11)
        returning id`,
       [property.id, u.name, u.slug, u.description, u.max_guests, u.bedrooms, u.beds,
-       u.bathrooms, u.base_price_usd, u.cleaning_fee_usd, u.min_nights, i],
+       u.bathrooms, u.base_price_usd, u.min_nights, i],
     )
     unitIds[u.slug] = unit.id
+
+    // La limpieza es un cargo, no una columna de la unidad.
+    if (u.cleaning) {
+      await client.query(
+        `insert into fees (unit_id, name, kind, amount, refundable, sort_order)
+         values ($1, 'Limpieza', 'fixed', $2, false, 0)`,
+        [unit.id, u.cleaning],
+      )
+    }
 
     for (const a of u.amenities) {
       await client.query(
@@ -217,7 +227,7 @@ try {
     `insert into bookings (
        unit_id, hold_id, status, check_in, check_out, guests,
        guest_name, guest_email, guest_phone, guest_document,
-       subtotal_usd, cleaning_fee_usd, total_usd,
+       subtotal_usd, total_usd,
        rate_snapshot, rate_date, total_ves, deposit_ratio
      ) values (
        $1, $2, 'pending', current_date + 20, current_date + 24, 2,
@@ -237,6 +247,15 @@ try {
        'Maria Rodriguez', 'V-18456789'
      )`,
     [booking.id, (totalUsd * 0.3).toFixed(2)],
+  )
+
+  // --- Cargos generales ------------------------------------------------------
+
+  await client.query(`delete from fees where unit_id is null`)
+  await client.query(
+    `insert into fees (unit_id, name, kind, amount, description, sort_order)
+     values (null, 'IVA', 'percent', 16,
+             'Impuesto al valor agregado sobre el total del servicio.', 10)`,
   )
 
   // --- Cuentas de cobro ------------------------------------------------------
