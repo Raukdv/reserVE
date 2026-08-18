@@ -13,6 +13,8 @@ Next.js + Supabase. Interfaz, comentarios y documentación **en español**.
 | `docs/COSTO-CERO.md` | Restricción de coste. Condiciona qué se puede construir |
 | `docs/VARIABLES.md` | Variables de entorno y qué se rompe si falta cada una |
 | `docs/PENDIENTES.md` | Acordado pero sin hacer, con contexto suficiente |
+| `docs/DISENO.md` | Paleta, tipografía y espaciado, medidos del código |
+| `docs/funciones/` | Una funcionalidad por archivo: qué resuelve, cómo, y qué se investigó antes |
 
 ## Reglas operativas
 
