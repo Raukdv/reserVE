@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { Plus } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 import { createClient } from '@/lib/supabase/server'
 import { unitMediaUrl } from '@/lib/media'
 import { usd } from '@/lib/format'
@@ -84,12 +86,12 @@ export default async function UnitsPage() {
           })}
         </ul>
       ) : (
-        <p className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
-          Todavía no hay unidades.{' '}
-          <Link href="/admin/unidades/nueva" className="underline">
+        <div className="mt-8 rounded-2xl border border-dashed border-ink/20 p-12 text-center">
+          <p className="text-sm text-ink/70">Todavía no hay unidades.</p>
+          <LinkButton href="/admin/unidades/nueva" icon={Plus} tone="principal" className="mt-4">
             Crear la primera
-          </Link>
-        </p>
+          </LinkButton>
+        </div>
       )}
     </main>
   )

@@ -206,6 +206,28 @@ export interface Database {
         ]
       }
 
+      site_media: {
+        Row: {
+          id: string
+          /** Misma clave de sección que site_content. */
+          section_key: string
+          storage_path: string
+          alt_text: string | null
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          section_key: string
+          storage_path: string
+          alt_text?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['site_media']['Insert']>
+        Relationships: []
+      }
+
       amenities: {
         Row: {
           id: string
@@ -867,6 +889,10 @@ export interface Database {
       staff_delete_unit: { Args: { p_unit_id: string }; Returns: Json }
       staff_extend_stay: { Args: { p_code: string; p_check_out: string }; Returns: Json }
       staff_set_cover: { Args: { p_media_id: string }; Returns: Json }
+      staff_add_site_image: {
+        Args: { p_section: string; p_path: string; p_max?: number }
+        Returns: Json
+      }
       staff_add_photo: {
         Args: { p_unit_id: string; p_path: string; p_max?: number }
         Returns: Json

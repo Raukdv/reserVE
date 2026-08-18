@@ -9,6 +9,8 @@ import { unitPhotos } from '@/lib/media'
 import { AvailabilityCalendar } from '@/components/availability-calendar'
 import { genericPolicy, parseTiers } from '@/lib/cancellation'
 import { AmenityIcon } from '@/components/amenity-icon'
+import { ArrowLeft } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 import type { Quote } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -106,9 +108,9 @@ export default async function UnitPage({
       <SiteHeader businessName={businessName} />
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <Link href="/alojamientos" className="text-sm text-ink/70 hover:underline">
-          ← Alojamientos
-        </Link>
+        <LinkButton href="/alojamientos" icon={ArrowLeft}>
+          Alojamientos
+        </LinkButton>
 
         <h1 className="mt-4 text-4xl font-semibold tracking-tight">{unit.name}</h1>
         <p className="mt-2 text-descripcion text-ink/70">

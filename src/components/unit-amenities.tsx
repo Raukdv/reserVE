@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { setAmenities, type UnitState } from '@/app/admin/unidades/actions'
 import { categoryLabel, groupByCategory, type Amenity } from '@/lib/amenities'
 import { AmenityIcon } from '@/components/amenity-icon'
+import { Settings2 } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 
 /**
  * Selector de amenidades de una unidad.
@@ -50,9 +52,9 @@ export function UnitAmenities({
             Se listan en la ficha del alojamiento.
           </p>
         </div>
-        <Link href="/admin/amenidades" className="text-sm text-ink/70 underline">
+        <LinkButton href="/admin/amenidades" icon={Settings2} className="shrink-0">
           Editar catálogo
-        </Link>
+        </LinkButton>
       </div>
 
       <form action={action} className="mt-5">

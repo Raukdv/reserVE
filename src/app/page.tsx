@@ -6,7 +6,9 @@ import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
 import { UnitsBook, type BookPage } from '@/components/units-book'
-import { unitCovers } from '@/lib/media'
+import { unitCovers, siteImages } from '@/lib/media'
+import { LayoutGrid, Plus } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 
 export const revalidate = 300
 
@@ -43,11 +45,20 @@ export default async function HomePage() {
   )
 
   const covers = await unitCovers((units ?? []).map((u) => u.id))
+  const siteMedia = await siteImages(['hero', 'about', 'location'])
 
-  // El hero toma la portada de la primera unidad publicada. Es la foto que el
-  // operador ya eligió como cara del alojamiento, y ahorra tener que subir otra
-  // solo para la cabecera.
-  const hero = units?.[0] ? covers.get(units[0].id) : undefined
+  /*
+    Foto de la portada.
+
+    Manda la que el operador suba para la sección; si no hay, se toma prestada la
+    del primer alojamiento publicado. Ese préstamo es una red, no la norma: la
+    cara del negocio no tiene por qué ser una habitación.
+  */
+  const hero =
+    siteMedia.get('hero')?.[0] ?? (units?.[0] ? covers.get(units[0].id) : undefined)
+
+  const about = siteMedia.get('about')?.[0]
+  const location = siteMedia.get('location')?.[0]
 
   // Desde tres: con menos caben en un pliego y el libro sobra.
   const showBook = (units?.length ?? 0) >= 3
@@ -111,9 +122,9 @@ export default async function HomePage() {
               <h2 className="text-3xl font-semibold tracking-tight">Alojamientos</h2>
               <p className="mt-2 text-entrada text-ink/70">Elige el espacio que mejor se ajuste a tu estadía.</p>
             </div>
-            <Link href="/alojamientos" className="shrink-0 text-sm hover:underline">
-              Ver todos →
-            </Link>
+            <LinkButton href="/alojamientos" icon={LayoutGrid} className="shrink-0">
+              Ver todos
+            </LinkButton>
           </div>
 
           {units && units.length > 0 ? (
@@ -169,17 +180,24 @@ export default async function HomePage() {
               </div>
             </>
           ) : (
-            <p className="mt-10 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
-              Todavía no hay alojamientos publicados.{' '}
-              <Link href="/admin/unidades" className="underline">Crear el primero</Link>
-            </p>
+            <div className="mt-10 rounded-2xl border border-dashed border-ink/20 p-12 text-center">
+              <p className="text-sm text-ink/70">Todavía no hay alojamientos publicados.</p>
+              <LinkButton href="/admin/unidades" icon={Plus} tone="principal" className="mt-4">
+                Crear el primero
+              </LinkButton>
+            </div>
           )}
         </section>
 
         {/* Sobre el negocio */}
         <section id="sobre" className="border-y border-ink/10 bg-white/50">
           <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1fr_1.2fr]">
-            <UnitThumb slug="about-section" className="min-h-64 rounded-2xl" />
+            <UnitThumb
+              slug="about-section"
+              src={about?.url}
+              alt={about?.alt}
+              className="min-h-64 rounded-2xl"
+            />
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">
                 {str(s.about, 'title', 'Sobre nosotros')}
@@ -218,7 +236,13 @@ export default async function HomePage() {
                 {str(s.location, 'address', property?.address ?? '')}
               </p>
             </div>
-            <UnitThumb slug="mapa-ubicacion" className="min-h-64 rounded-2xl" label="Mapa pendiente" />
+            <UnitThumb
+              slug="mapa-ubicacion"
+              src={location?.url}
+              alt={location?.alt}
+              className="min-h-64 rounded-2xl"
+              label={location ? undefined : 'Sin foto todavía'}
+            />
           </div>
         </section>
 

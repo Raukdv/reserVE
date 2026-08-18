@@ -191,14 +191,49 @@ principal    rounded-xl bg-ink px-6 py-2.5 text-sm text-sand
 secundario   rounded-lg border border-ink/15 px-4 py-2 text-sm
              transition hover:border-ink/40
 
-terciario    text-sm text-ink/55 underline hover:text-ink
+terciario    text-sm text-ink/70 underline hover:text-ink
 
-destructivo  text-sm text-ink/45 underline hover:text-red-700
+destructivo  text-sm text-ink/60 underline hover:text-red-700
 ```
 
 Todo botón que dispara una acción de servidor cambia su texto mientras trabaja
 —«Guardando…», «Aprobando…»— y se deshabilita. No es adorno: sin eso se envía
 dos veces.
+
+### Cuándo usar cada nivel
+
+Los cuatro estilos existían sin regla que dijera cuál tocaba, y el terciario
+acabó haciendo cuatro trabajos distintos con la misma pinta: navegar a otra
+página, borrar algo, enlazar dentro de una frase y ser la acción principal de un
+estado vacío. Medido: **65 enlaces de solo texto frente a 46 botones con borde y
+29 sólidos** — el elemento interactivo más común era el que menos se distinguía
+del texto.
+
+| Papel | Qué usar |
+|---|---|
+| Enviar un formulario, o la única acción esperada en un estado vacío | **Principal** |
+| **Ir a otra pantalla**, estando el enlace suelto | **`LinkButton`** — píldora con icono |
+| Acción secundaria dentro de un bloque | **Secundario** |
+| Enlace dentro de una frase | **Terciario**, texto subrayado |
+| Borrar, quitar, descartar | **Destructivo**, texto subrayado |
+
+Los dos últimos se quedan como texto a propósito. Un botón llamativo para
+«Borrar» invita al accidente, y un enlace dentro de un párrafo debe parecer un
+enlace, no un control incrustado en la prosa.
+
+### `LinkButton`
+
+`src/components/link-button.tsx`. Píldora con icono para los enlaces que llevan
+a otra pantalla y van sueltos: «Ver todos», «Editar catálogo», «Ver la web»,
+volver atrás.
+
+No es cuestión de gusto. **WCAG 2.5.8 pide un objetivo de al menos 24×24 px**, y
+un enlace de texto a 14 px mide unos 14 de alto: no llega, y en móvil se falla al
+pulsarlo. Con `px-4 py-2` el objetivo pasa de 36 px.
+
+El icono tampoco es adorno: es lo que hace que se lea como control antes de leer
+la etiqueta. `lucide-react` ya está en el proyecto y hace *tree-shaking*, así que
+cada icono nuevo no suma peso apreciable.
 
 ### Campos
 

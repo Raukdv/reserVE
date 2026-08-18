@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { POLICY_TITLE, genericPolicy, parseTiers } from '@/lib/cancellation'
+import { ArrowLeft } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 
 export const revalidate = 300
 
@@ -76,9 +78,9 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
       <SiteHeader businessName={businessName} />
 
       <main className="mx-auto max-w-2xl px-6 py-16">
-        <Link href="/" className="text-sm text-ink/70 hover:underline">
-          ← Inicio
-        </Link>
+        <LinkButton href="/" icon={ArrowLeft}>
+          Inicio
+        </LinkButton>
 
         <h1 className="mt-4 text-3xl font-semibold tracking-tight">{title}</h1>
 

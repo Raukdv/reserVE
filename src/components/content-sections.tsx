@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import { saveSection, type ContentState } from '@/app/admin/contenido/actions'
+import { SiteImages, type SiteImage } from '@/components/site-images'
 
 const field =
   'w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-ink/40'
@@ -15,7 +16,14 @@ const str = (s: Section | undefined, key: string) =>
 const list = <T,>(s: Section | undefined, key: string): T[] =>
   Array.isArray(s?.[key]) ? (s[key] as T[]) : []
 
-export function ContentSections({ content }: { content: Record<string, Section> }) {
+export function ContentSections({
+  content,
+  images = {},
+}: {
+  content: Record<string, Section>
+  /** Fotos del negocio por clave de sección. Ver `site_media`. */
+  images?: Record<string, SiteImage[]>
+}) {
   return (
     <div className="space-y-5">
       <Panel
@@ -23,6 +31,8 @@ export function ContentSections({ content }: { content: Record<string, Section> 
         heading="Portada"
         hint="Lo primero que se ve al entrar."
         data={content.hero}
+        images={images.hero ?? []}
+        imagesHint="Fondo de la portada. Sin foto propia se usa la del primer alojamiento publicado."
       >
         {(data) => (
           <>
@@ -37,6 +47,8 @@ export function ContentSections({ content }: { content: Record<string, Section> 
         heading="Sobre el negocio"
         hint="Deja una línea en blanco para separar párrafos."
         data={content.about}
+        images={images.about ?? []}
+        imagesHint="Del negocio, no de una habitación: la casa, el patio, la terraza."
       >
         {(data) => (
           <>
@@ -80,7 +92,13 @@ export function ContentSections({ content }: { content: Record<string, Section> 
         )}
       </Panel>
 
-      <Panel sectionKey="location" heading="Cómo llegar" data={content.location}>
+      <Panel
+        sectionKey="location"
+        heading="Cómo llegar"
+        data={content.location}
+        images={images.location ?? []}
+        imagesHint="La entrada, la fachada, alguna referencia de la calle. Ayuda más que un mapa."
+      >
         {(data) => (
           <>
             <Text name="title" label="Título" value={str(data, 'title')} />
@@ -222,12 +240,17 @@ function Panel({
   heading,
   hint,
   data,
+  images,
+  imagesHint,
   children,
 }: {
   sectionKey: string
   heading: string
   hint?: string
   data?: Section
+  /** Fotos de la sección. Sin esto, el panel es solo texto. */
+  images?: SiteImage[]
+  imagesHint?: string
   children: (data?: Section) => React.ReactNode
 }) {
   const [state, action, pending] = useActionState<ContentState, FormData>(saveSection, {})
@@ -252,6 +275,19 @@ function Panel({
           {state.error && <span className="text-sm text-red-700">{state.error}</span>}
         </div>
       </form>
+
+      {/*
+        Las fotos van fuera del formulario del texto: se suben y se borran solas,
+        sin pasar por «Guardar». Meterlas dentro anidaría formularios, que el
+        navegador no admite.
+      */}
+      {images && (
+        <SiteImages
+          section={sectionKey}
+          images={images}
+          hint={imagesHint ?? 'Se ven en esta sección de la web pública.'}
+        />
+      )}
     </section>
   )
 }

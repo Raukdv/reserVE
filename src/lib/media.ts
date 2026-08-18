@@ -13,7 +13,43 @@ import { GALLERY_SIZE } from '@/lib/media-limits'
 export const unitMediaUrl = (path: string) =>
   `${publicEnv.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/unit-media/${path}`
 
+/**
+ * URL pública de una foto del sitio.
+ *
+ * Bucket propio y no un prefijo dentro de `unit-media`: ese nombre dice de qué
+ * son sus archivos, y meter ahí fotos que no son de ninguna unidad lo
+ * convertiría en mentira.
+ */
+export const siteMediaUrl = (path: string) =>
+  `${publicEnv.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/site-media/${path}`
+
 export type Cover = { url: string; alt: string | null }
+
+/**
+ * Fotos de las secciones del sitio, agrupadas por su clave.
+ *
+ * Una sola consulta para todas las secciones que pida la página: pedirlas de una
+ * en una serían tantos viajes como secciones tenga el home.
+ */
+export async function siteImages(sections: string[]): Promise<Map<string, Cover[]>> {
+  const byKey = new Map<string, Cover[]>()
+  if (sections.length === 0) return byKey
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('site_media')
+    .select('section_key, storage_path, alt_text')
+    .in('section_key', sections)
+    .order('section_key')
+    .order('sort_order')
+
+  for (const row of data ?? []) {
+    const list = byKey.get(row.section_key) ?? []
+    list.push({ url: siteMediaUrl(row.storage_path), alt: row.alt_text })
+    byKey.set(row.section_key, list)
+  }
+  return byKey
+}
 
 /**
  * Portadas de un conjunto de unidades, listas para pintar.

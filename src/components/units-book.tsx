@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { UnitThumb } from '@/components/unit-thumb'
+import { LayoutGrid } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 
 /**
  * Duración del giro, en milisegundos.
@@ -170,9 +172,9 @@ export function UnitsBook({ pages, allHref }: { pages: BookPage[]; allHref: stri
 
       {/* Salida al catálogo completo, visible desde cualquier página. */}
       <p className="mt-4 text-center">
-        <Link href={allHref} className="text-sm underline hover:text-ink">
+        <LinkButton href={allHref} icon={LayoutGrid}>
           Ver todos los alojamientos
-        </Link>
+        </LinkButton>
       </p>
     </div>
   )

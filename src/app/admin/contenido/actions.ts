@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { createClient, getProfile } from '@/lib/supabase/server'
+import { randomUUID } from 'node:crypto'
+import { createClient, createAdminClient, getProfile } from '@/lib/supabase/server'
+import { MAX_PHOTO_BYTES, MAX_SITE_PHOTOS_PER_SECTION } from '@/lib/media-limits'
 import type { Json } from '@/types/database'
 
 export type ContentState = { error?: string; ok?: string }
@@ -124,4 +126,119 @@ function safeParse(value: string): unknown {
   } catch {
     return []
   }
+}
+
+// ---------------------------------------------------------------------------
+// Fotos de las secciones del sitio
+// ---------------------------------------------------------------------------
+
+const SITE_BUCKET = 'site-media'
+
+const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png']
+const EXTENSIONS: Record<string, string> = {
+  'image/webp': 'webp',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+}
+
+/**
+ * Sube una foto a una sección del sitio.
+ *
+ * Estas fotos representan al negocio —la casa, la terraza, el entorno— y no a
+ * ninguna unidad. Por eso viven en su propio bucket y en `site_media`, con la
+ * misma clave de sección que el texto.
+ */
+export async function uploadSiteImage(
+  _prev: ContentState,
+  formData: FormData,
+): Promise<ContentState> {
+  await requireStaff()
+
+  const section = String(formData.get('section') ?? '').trim()
+  if (!section) return { error: 'Sección no válida.' }
+
+  const photo = formData.get('image')
+  if (!(photo instanceof File) || photo.size === 0) return { error: 'Elige una imagen.' }
+
+  if (!ALLOWED_TYPES.includes(photo.type)) {
+    return { error: 'Debe ser una imagen JPG, PNG o WebP.' }
+  }
+
+  if (photo.size > MAX_PHOTO_BYTES) {
+    return {
+      error:
+        `Pesa ${Math.round(photo.size / 1024)} KB y el máximo es ` +
+        `${MAX_PHOTO_BYTES / 1024} KB. Prueba con una imagen más pequeña.`,
+    }
+  }
+
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const path = `${section}/${randomUUID()}.${EXTENSIONS[photo.type]}`
+
+  const { error: uploadError } = await admin.storage
+    .from(SITE_BUCKET)
+    .upload(path, photo, { contentType: photo.type, upsert: false })
+
+  if (uploadError) return { error: 'No se pudo subir la imagen.' }
+
+  // El tope y el orden los resuelve la base en una sentencia, igual que en las
+  // fotos de unidad: contarlas aquí y luego insertar deja una carrera.
+  const { data, error } = await supabase.rpc('staff_add_site_image', {
+    p_section: section,
+    p_path: path,
+    p_max: MAX_SITE_PHOTOS_PER_SECTION,
+  })
+
+  const result = data as { ok: boolean; error?: string; max?: number } | null
+
+  if (error || !result?.ok) {
+    // Sin fila, el archivo ocuparía cuota sin que nada lo referencie.
+    await admin.storage.from(SITE_BUCKET).remove([path])
+
+    if (result?.error === 'too_many') {
+      return {
+        error: `Esta sección ya tiene ${result.max} fotos, que es el máximo.`,
+      }
+    }
+    return { error: 'No se pudo registrar la imagen.' }
+  }
+
+  revalidatePath('/admin/contenido')
+  revalidatePath('/', 'layout')
+
+  return { ok: 'Imagen subida.' }
+}
+
+/** Borra una foto de sección, del registro y del almacén. */
+export async function deleteSiteImage(
+  _prev: ContentState,
+  formData: FormData,
+): Promise<ContentState> {
+  await requireStaff()
+
+  const id = z.string().uuid().safeParse(formData.get('id'))
+  if (!id.success) return { error: 'Imagen no válida.' }
+
+  const supabase = await createClient()
+
+  const { data: media } = await supabase
+    .from('site_media')
+    .select('storage_path')
+    .eq('id', id.data)
+    .maybeSingle()
+
+  const { error } = await supabase.from('site_media').delete().eq('id', id.data)
+  if (error) return { error: 'No se pudo eliminar.' }
+
+  // Se borra el archivo después de la fila: al revés, un fallo al borrar la fila
+  // dejaría una imagen rota en la web.
+  if (media?.storage_path) {
+    await createAdminClient().storage.from(SITE_BUCKET).remove([media.storage_path])
+  }
+
+  revalidatePath('/admin/contenido')
+  revalidatePath('/', 'layout')
+
+  return { ok: 'Imagen eliminada.' }
 }

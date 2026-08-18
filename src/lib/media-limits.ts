@@ -77,3 +77,12 @@ export const GALLERY_SIZE = 5
 export const PHOTO_COMPRESSION = { maxEdge: 1600, quality: 0.75 }
 
 export const MAX_PHOTO_KB = MAX_PHOTO_BYTES / 1024
+
+/**
+ * Fotos por sección del sitio.
+ *
+ * Más bajo que el de unidades porque una sección no es un catálogo: «sobre
+ * nosotros» quiere una foto, quizá tres. El tope está para que ninguna consulta
+ * crezca sin techo, no para racionar.
+ */
+export const MAX_SITE_PHOTOS_PER_SECTION = 12

@@ -7,6 +7,8 @@ import { METHODS } from '@/lib/payment-methods'
 import { parseAppliedFees } from '@/lib/fees'
 import { BookingActions, type RefundPreview } from '@/components/booking-actions'
 import { CollectionSummary, collectionState } from '@/components/collection-summary'
+import { ArrowLeft, Eye, MessageCircle } from 'lucide-react'
+import { LinkButton } from '@/components/link-button'
 import type { BookingStatus, PaymentMethod, PaymentStatus } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -113,9 +115,9 @@ export default async function BookingDetail({
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
-      <Link href="/admin/calendario" className="text-sm text-ink/70 hover:underline">
-        ← Calendario
-      </Link>
+      <LinkButton href="/admin/calendario" icon={ArrowLeft}>
+        Calendario
+      </LinkButton>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="font-mono text-2xl font-semibold tracking-tight">{booking.code}</h1>
@@ -158,20 +160,19 @@ export default async function BookingDetail({
 
         <div className="mt-3 flex flex-wrap gap-4 text-sm">
           {booking.guest_phone && (
-            <a
+            <LinkButton
               href={`https://wa.me/${booking.guest_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
                 `Hola ${booking.guest_name}, aquí está tu reserva en ${unit?.name ?? 'nuestra posada'}: ${guestUrl}`,
               )}`}
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
+              icon={MessageCircle}
+              external
             >
               Enviar por WhatsApp
-            </a>
+            </LinkButton>
           )}
-          <a href={guestUrl} target="_blank" rel="noreferrer" className="text-ink/70 underline">
+          <LinkButton href={guestUrl} icon={Eye} external>
             Ver como lo ve el huésped
-          </a>
+          </LinkButton>
         </div>
       </section>
 
