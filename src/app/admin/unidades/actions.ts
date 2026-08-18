@@ -237,27 +237,6 @@ export async function uploadPhoto(_prev: UnitState, formData: FormData): Promise
   }
 
   const supabase = await createClient()
-
-  /*
-    Cuántas hay ya. Se cuenta antes de subir el archivo: rechazar después
-    dejaría el archivo ocupando cuota sin fila que lo referencie, que es el
-    mismo agujero que tapa el borrado de más abajo.
-
-    `head: true` pide solo el total, sin traer las filas.
-  */
-  const { count } = await supabase
-    .from('unit_media')
-    .select('id', { count: 'exact', head: true })
-    .eq('unit_id', unitId.data)
-
-  if ((count ?? 0) >= MAX_PHOTOS_PER_UNIT) {
-    return {
-      error:
-        `Esta unidad ya tiene ${MAX_PHOTOS_PER_UNIT} fotos, que es el máximo. ` +
-        'Borra alguna para subir otra.',
-    }
-  }
-
   const admin = createAdminClient()
   const path = `${unitId.data}/${randomUUID()}.${EXTENSIONS[photo.type]}`
 
@@ -267,23 +246,32 @@ export async function uploadPhoto(_prev: UnitState, formData: FormData): Promise
 
   if (uploadError) return { error: 'No se pudo subir la imagen.' }
 
-  const { data: last } = await supabase
-    .from('unit_media')
-    .select('sort_order')
-    .eq('unit_id', unitId.data)
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  /*
+    El tope y el `sort_order` los resuelve la base en una sola sentencia.
 
-  const { error } = await supabase.from('unit_media').insert({
-    unit_id: unitId.data,
-    storage_path: path,
-    sort_order: (last?.sort_order ?? -1) + 1,
+    Contarlas aquí y después insertar deja una carrera entre las dos consultas:
+    con selección múltiple dos fotos podían leer el mismo máximo y acabar con el
+    mismo número, o pasar las dos un tope que solo admitía una más.
+  */
+  const { data, error } = await supabase.rpc('staff_add_photo', {
+    p_unit_id: unitId.data,
+    p_path: path,
+    p_max: MAX_PHOTOS_PER_UNIT,
   })
 
-  if (error) {
+  const result = data as { ok: boolean; error?: string; max?: number } | null
+
+  if (error || !result?.ok) {
     // Sin fila, el archivo quedaría ocupando cuota sin que nada lo referencie.
     await admin.storage.from(MEDIA_BUCKET).remove([path])
+
+    if (result?.error === 'too_many') {
+      return {
+        error:
+          `Esta unidad ya tiene ${result.max} fotos, que es el máximo. ` +
+          'Borra alguna para subir otra.',
+      }
+    }
     return { error: 'No se pudo registrar la imagen.' }
   }
 
@@ -291,6 +279,25 @@ export async function uploadPhoto(_prev: UnitState, formData: FormData): Promise
   revalidatePath('/', 'layout')
 
   return { ok: 'Imagen subida.' }
+}
+
+/** Marca una foto como portada. La anterior deja de serlo. */
+export async function setCover(_prev: UnitState, formData: FormData): Promise<UnitState> {
+  await requireStaff()
+
+  const id = z.string().uuid().safeParse(formData.get('id'))
+  if (!id.success) return { error: 'Imagen no válida.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('staff_set_cover', { p_media_id: id.data })
+
+  const result = data as { ok: boolean; error?: string } | null
+  if (error || !result?.ok) return { error: 'No se pudo cambiar la portada.' }
+
+  revalidatePath('/admin/unidades')
+  revalidatePath('/', 'layout')
+
+  return { ok: 'Portada cambiada.' }
 }
 
 export async function deletePhoto(_prev: UnitState, formData: FormData): Promise<UnitState> {

@@ -267,15 +267,20 @@ de archivo que finge ser el alojamiento.
 Detalles encontrados usando la app. Sin implementar todavía; se van tachando al
 resolverse.
 
-### 1. La portada de una unidad se elige sola
+### ~~1. La portada de una unidad se elige sola~~ — resuelto
 
 **Dónde:** `/admin/unidades/[id]`, bloque de fotos.
 
-> **Al día de hoy la portada ya se publica.** La web pública lee la vista
-> `unit_covers` (migración `0022`) y pinta la foto en el catálogo, el home, la
-> ficha y el resumen de reserva; sin fotos cargadas sigue saliendo el degradado.
-> Lo que sigue abierto es lo de abajo: **cuál** es la portada continúa
-> decidiéndolo el orden de subida, no el operador.
+> **Resuelto en la migración `0025`.** `unit_media.is_cover` marca la elegida,
+> con un índice único parcial que impide dos por unidad. La vista `unit_covers`
+> ordena por la marca primero y por `sort_order` después, así que **borrar la
+> marcada devuelve la portada a la primera** en lugar de dejar la unidad sin
+> cara — de las dos salidas que se planteaban abajo, esta es la que no deja
+> estado roto.
+>
+> El orden sigue mandando en la galería; son dos decisiones separadas.
+
+Lo que sigue es el planteamiento original.
 
 La primera foto de la lista es la portada, y eso no lo decide el operador: lo
 decide el orden de subida. Para cambiarla hay que mover la imagen con las flechas
@@ -291,9 +296,24 @@ Al implementarlo:
 - Hace falta decidir qué pasa al borrar la foto marcada: la siguiente pasa a
   serlo, o la unidad se queda sin portada hasta que se elija otra.
 
-### 2. Subir fotos son tres pasos y solo admite una
+### ~~2. Subir fotos son tres pasos y solo admite una~~ — resuelto
 
 **Dónde:** el mismo bloque.
+
+> **Resuelto.** Arrastrar y soltar, selección múltiple, y subida automática al
+> elegir: se quitó el botón de confirmar porque elegir ya es confirmar.
+>
+> La cola es **secuencial**, no paralela: cada acción de servidor lleva un
+> archivo —el límite de cuerpo por defecto de Next es 1 MB y varias fotos no
+> caben— y comprimir varias a la vez congela el navegador. Cada archivo lleva su
+> propio estado, así que uno que falle no cancela los demás.
+>
+> Lo del `sort_order` se resolvió en la base: `staff_add_photo()` bloquea la fila
+> de la unidad y calcula el orden y el tope en una sola sentencia. Contarlas
+> desde el servidor y después insertar dejaba una carrera que con selección
+> múltiple habría dejado de ser teórica.
+
+Lo que sigue es el planteamiento original.
 
 Hoy: pulsar el campo, elegir el archivo en el diálogo del sistema, y **volver a
 pulsar** «Añadir foto». Ese último paso no aporta nada — ya se eligió el archivo,

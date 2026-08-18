@@ -31,7 +31,7 @@ export default async function EditUnitPage({ params }: { params: Promise<{ id: s
       supabase.from('unit_amenities').select('amenity_id').eq('unit_id', id),
       supabase
         .from('unit_media')
-        .select('id, storage_path, sort_order')
+        .select('id, storage_path, sort_order, is_cover')
         .eq('unit_id', id)
         .order('sort_order')
         .limit(MAX_PHOTOS_PER_UNIT),
@@ -44,6 +44,7 @@ export default async function EditUnitPage({ params }: { params: Promise<{ id: s
     id: m.id,
     url: unitMediaUrl(m.storage_path),
     sortOrder: m.sort_order,
+    isCover: m.is_cover,
   }))
 
   return (
