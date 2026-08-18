@@ -239,10 +239,9 @@ ok   «Firme» se reconoce tras ida y vuelta
 
 ## Lo que no cubre
 
-**El reembolso no se registra como pago.** `staff_cancel_booking()` cambia el
-estado y libera las fechas, pero no inserta una fila con `payment_kind =
-'refund'`. El enum lo contempla y nada lo escribe: el dinero devuelto no queda
-en el historial de la reserva.
+**~~El reembolso no se registra como pago.~~** Resuelto en la migración `0023`:
+cancelar congela lo que se debe en `refund_due_usd`, y `staff_record_refund()`
+anota cada devolución hecha. Ver `cobro-y-verificacion.md`.
 
 **No hay estado `no_show`.** Al huésped que no aparece solo se le puede cancelar,
 con reembolso según política. Pendiente de consultar con operadores reales — ver
