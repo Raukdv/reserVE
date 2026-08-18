@@ -285,13 +285,67 @@ muestra lo que falta sin impedir cerrarlo.
 
 ---
 
-## Lo que no cubre
+## IGTF
 
-**El IGTF no se calcula.** Se configura en Ajustes —activarlo y su tasa— y
-`bookings.igtf_ves` existe como columna, pero ninguna función lo aplica:
-`quote_stay()` no lo menciona. Hoy es un interruptor que no hace nada. Como solo
-lo recaudan los contribuyentes especiales designados por el SENIAT, no bloquea a
-un negocio pequeño, pero la interfaz promete algo que no cumple.
+El Impuesto a las Grandes Transacciones Financieras **lo causa el medio de pago,
+no la estadía**. La misma reserva lo genera o no según cómo se cobre:
+
+| Canal | Moneda | IGTF |
+|---|---|---|
+| Pago Móvil, transferencia nacional, C2P | VES | **0 %** |
+| Zelle, PayPal, Binance, USDT, efectivo | USD | **3 %** |
+
+Ese es el motivo por el que el interruptor no hacía nada durante tanto tiempo: el
+modelo lo trataba como un impuesto de la reserva, igual que el IVA, y no lo es.
+
+### Lo que exige la norma
+
+- **3 % sobre pagos en divisas o criptoactivos** recibidos sin mediación del
+  sistema financiero nacional.
+- **0 % en bolívares** desde el Decreto 4.972 (Gaceta 6.821 extraordinario,
+  12/07/2024). Antes era 2 %.
+- **Solo lo cobra quien esté calificado sujeto pasivo especial** por el SENIAT.
+  Quien no lo esté no puede cobrarlo aunque reciba divisas. Por eso el
+  interruptor viene apagado.
+- **La base incluye los demás impuestos.** Aquí sale solo: se aplica sobre el
+  total ya compuesto por `compute_fees()`, que es donde viven los porcentajes.
+- En la factura debe reflejarse el porcentaje, el monto en divisas y su
+  equivalente en bolívares.
+
+### Proyección al cotizar, importe real al cobrar
+
+Al cotizar no se sabe cómo pagará el huésped, así que ahí solo cabe una
+proyección. `quote_stay()` devuelve `igtf_usd` y `total_divisas_usd` **sin tocar
+`total_usd`**: la estadía cuesta lo mismo. Sumarlo al total encarecería la
+reserva para quien va a pagar en bolívares y nunca lo va a causar.
+
+El checkout lo dice explícitamente, y el formulario de reporte prellena el monto
+con el impuesto dentro cuando el canal elegido es en divisas — sin eso, el
+huésped transferiría de menos y la reserva no llegaría a confirmarse.
+
+### Se extrae del bruto, no se suma encima
+
+El huésped paga el total **más** el impuesto: es una percepción, la soporta quien
+paga y el negocio la entera al fisco. De lo que llega, una parte no es suya.
+
+```
+amount       lo que se movió, en su moneda      (bruto)
+igtf_usd     la parte que es impuesto           (se entera al SENIAT)
+amount_usd   lo que abona a la estadía          (neto)
+```
+
+Con alícuota `r`, el bruto es `neto × (1 + r)`, así que el impuesto contenido es
+`bruto × r / (1 + r)` — y no `bruto × r`, que cobraría de más.
+
+Guardar el neto en `amount_usd` es lo que mantiene correctas las ocho funciones
+que calculan lo pagado con `sum(amount_usd)`: ninguna necesitó cambiar, y
+ninguna acredita a la reserva un dinero que no es del negocio.
+
+`bookings.igtf_ves` quedó sin uso: era la columna del modelo equivocado.
+
+---
+
+## Lo que no cubre
 
 **El anticipo se calcula sobre el total con impuestos.** `total_usd ×
 deposit_ratio` incluye los cargos de porcentaje. Puede ser lo correcto o no,
@@ -299,6 +353,21 @@ pero es una decisión que nunca se tomó explícitamente. Ver `PENDIENTES.md`.
 
 **No hay cobro parcial programado.** El saldo se cobra cuando alguien lo cobra;
 nada recuerda que falta salvo la propia reserva.
+
+---
+
+## Referencias del IGTF
+
+Consultadas en agosto de 2026.
+
+| Fuente | Qué aporta |
+|---|---|
+| [IGTF y pagos en divisas: efectivo, wallets y criptoactivos — Gálac](https://galac.com/galac-blog/igtf-pagos-divisas-cripto/) | Qué canal lo causa y cuál no: efectivo, Zelle, PayPal y cripto al 3 %; tarjeta de débito nacional que convierte a bolívares, al 0 % |
+| [Decreto 4.972 — alícuota 0 % en bolívares](https://gerenciaytributos.blogspot.com/2024/07/decreto-alicuota-cero-IGTF-4972-2024.html) | La bajada del 2 % al 0 % en moneda nacional, en vigor el 15/07/2024. El 3 % en divisas sigue |
+| [Se fija en 0 % la alícuota para moneda nacional — Forvis Mazars](https://www.forvismazars.com/ve/es/insights/forvis-mazars-insights/se-fija-en-0-la-alicuota-del-igtf) | Alcance exacto: solo bolívares, dentro y fuera del sistema bancario |
+| [Reforma del IGTF: casos prácticos — Gálac](https://galac.com/galac-blog/reforma-del-igtf-algunos-casos-practicos/) | La base incluye el IVA: 100 + 16 de IVA = 116, IGTF = 3 % de 116 |
+| [IGTF y pagos en dólares: 10 preguntas — Prodavinci](https://prodavinci.com/igtf-y-pagos-en-dolares-10-preguntas-y-respuestas/) | Quién es sujeto pasivo especial y por qué solo ellos perciben el impuesto |
+| [La coletilla del IGTF en facturas — Nayma](https://naymaconsultores.com/la-coletilla-igtf-en-facturas/) | Qué reflejar en la factura: porcentaje, monto en divisas y equivalente en bolívares |
 
 ---
 
@@ -319,6 +388,7 @@ nada recuerda que falta salvo la propia reserva.
 | Pasarelas y liquidación | `record_gateway_payment()`, `settle_booking()`, migración `0010` |
 | Cobro y confirmación manual | `staff_record_payment()`, `staff_confirm_booking()`, migración `0011` |
 | Devoluciones | `staff_record_refund()` y `refund_due_usd`, migración `0023` |
+| IGTF | `igtf_in()` y `payments.igtf_usd`, migración `0024` |
 | Referencia única | Índice parcial, migración `0001` |
 
 Decisiones 3, 4, 5 y 6 de `ARCHITECTURE.md`.

@@ -110,9 +110,10 @@ de que el cobro estuviera construido. Conviene repasar con ese modelo delante:
   `docs/funciones/cobro-y-verificacion.md`.
 - **Anticipo sobre qué base.** El anticipo se calcula sobre el total con cargos
   incluidos. ¿Es lo que se quiere, o debería excluir impuestos?
-- **IGTF.** Sigue siendo una bandera aparte en `app_settings`, anterior al modelo
-  de cargos. Podría ser un cargo de porcentaje más, con la salvedad de que solo
-  aplica a pagos en divisa, cosa que ningún cargo sabe hoy.
+- ~~**IGTF.**~~ Resuelto en la migración `0024`, y no como un cargo: lo grava el
+  medio de pago, no la estadía, así que vive en `payments.igtf_usd` y se calcula
+  al cobrar. La cotización solo lo proyecta. Ver
+  `docs/funciones/cobro-y-verificacion.md`.
 - ~~**`units.cleaning_fee_usd`.**~~ Retirada en la migración `0019`.
 
 ---

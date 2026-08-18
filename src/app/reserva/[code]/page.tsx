@@ -114,7 +114,7 @@ export default async function BookingPage({
     supabase.rpc('get_booking', { p_code: code }),
     supabase
       .from('app_settings')
-      .select('business_name, business_email, business_phone, cancellation_policy, cancellation_tiers, check_in_time, check_out_time')
+      .select('business_name, business_email, business_phone, cancellation_policy, cancellation_tiers, check_in_time, check_out_time, igtf_enabled, igtf_rate')
       .single(),
     supabase
       .from('payment_accounts')

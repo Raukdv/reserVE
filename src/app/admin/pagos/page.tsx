@@ -12,7 +12,7 @@ export default async function PaymentsPage() {
   const { data: rows } = await supabase
     .from('payments')
     .select(`
-      id, method, currency, amount, amount_usd, origin, reference, paid_at,
+      id, method, currency, amount, amount_usd, igtf_usd, origin, reference, paid_at,
       payer_name, payer_document, receipt_path, created_at,
       bookings (
         code, guest_name, guest_email, check_in, check_out,
@@ -49,6 +49,7 @@ export default async function PaymentsPage() {
       currency: r.currency,
       amount: Number(r.amount),
       amount_usd: Number(r.amount_usd),
+      igtf_usd: Number(r.igtf_usd),
       origin: r.origin,
       reference: r.reference,
       paid_at: r.paid_at,

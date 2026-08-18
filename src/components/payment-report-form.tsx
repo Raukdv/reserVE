@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { reportPayment, type ReportState } from '@/app/reserva/[code]/actions'
 import { METHODS, GUEST_METHODS } from '@/lib/payment-methods'
 import { compressImage, kb } from '@/lib/compress-image'
+import { usd } from '@/lib/format'
 import { DocumentInput } from '@/components/document-input'
 import type { PaymentMethod } from '@/types/database'
 
@@ -14,11 +15,20 @@ export function PaymentReportForm({
   code,
   suggestedUsd,
   rate,
+  igtfRate = 0,
 }: {
   code: string
   /** Anticipo pendiente, en USD. Se usa para prellenar el monto. */
   suggestedUsd: number
   rate: number
+  /**
+   * Alícuota del IGTF, o 0 si el negocio no lo recauda.
+   *
+   * Solo grava los canales en divisas. Sin esto, el monto sugerido para Zelle
+   * se quedaría corto y el pago llegaría por debajo del anticipo: el huésped
+   * creería haber pagado y la reserva no se confirmaría.
+   */
+  igtfRate?: number
 }) {
   const [state, dispatch, pending] = useActionState<ReportState, FormData>(reportPayment, {})
   const [submitting, startSubmit] = useTransition()
@@ -28,8 +38,15 @@ export function PaymentReportForm({
   const [working, setWorking] = useState(false)
 
   const spec = METHODS[method]
+
+  // En divisas se pide el importe con el IGTF dentro, que es lo que hay que
+  // transferir. En bolívares no aplica.
+  const withIgtf = spec.currency === 'USD' ? suggestedUsd * (1 + igtfRate) : suggestedUsd
+  const igtfUsd = Math.round((withIgtf - suggestedUsd) * 100) / 100
   const suggested =
-    spec.currency === 'USD' ? suggestedUsd : Math.round(suggestedUsd * rate * 100) / 100
+    spec.currency === 'USD'
+      ? Math.round(withIgtf * 100) / 100
+      : Math.round(withIgtf * rate * 100) / 100
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -104,6 +121,12 @@ export function PaymentReportForm({
             key={method}
             className={field}
           />
+          {igtfUsd > 0 && (
+            <span className="mt-1 block text-xs text-ink/60">
+              Incluye {usd(igtfUsd)} de IGTF ({(igtfRate * 100).toFixed(1).replace('.', ',')} %)
+              por pagar en divisas. En bolívares no se aplica.
+            </span>
+          )}
         </label>
 
         <label className="block">

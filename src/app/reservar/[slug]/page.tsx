@@ -174,6 +174,28 @@ export default async function CheckoutPage({
                   </p>
                 </dl>
 
+                {/*
+                  El IGTF no entra en el total porque no lo causa la estadía sino
+                  el medio de pago: en bolívares no se aplica. Sumarlo arriba
+                  encarecería la reserva para quien nunca va a pagarlo, y no
+                  avisarlo dejaría al que sí paga en divisas con una sorpresa al
+                  llegar al banco.
+                */}
+                {quote.igtf_enabled && quote.igtf_usd > 0 && (
+                  <div className="rounded-xl border border-ink/15 p-4 text-xs leading-relaxed text-ink/70">
+                    Pagando en <strong className="font-medium text-ink">divisas</strong>{' '}
+                    —Zelle, PayPal, Binance, USDT o efectivo— se añade el IGTF del{' '}
+                    {(quote.igtf_rate * 100).toFixed(1).replace('.', ',')} %:{' '}
+                    <strong className="font-medium text-ink">
+                      {usd(quote.total_divisas_usd)}
+                    </strong>{' '}
+                    en total.
+                    <span className="mt-1 block">
+                      Pagando en bolívares por Pago Móvil o transferencia no se aplica.
+                    </span>
+                  </div>
+                )}
+
                 <div className="rounded-xl bg-sand p-4 text-xs leading-relaxed text-ink/70">
                   Para confirmar se paga un anticipo del{' '}
                   {Math.round(quote.deposit_ratio * 100)}%:{' '}

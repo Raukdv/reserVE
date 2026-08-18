@@ -499,19 +499,38 @@ export function SettingsForm({ settings }: { settings: Row<'app_settings'> }) {
       <section className="border-t border-ink/10 pt-8">
         <h2 className="text-base font-semibold">IGTF</h2>
         <p className="mt-1 text-descripcion text-ink/70">
-          Impuesto sobre pagos en divisas. Solo lo recaudan los negocios designados
-          contribuyentes especiales por el SENIAT. Si no lo eres, déjalo apagado.
+          Impuesto a las Grandes Transacciones Financieras. Lo causa{' '}
+          <strong className="font-medium text-ink">el medio de pago</strong>, no la
+          estadía: la misma reserva lo genera o no según cómo se cobre.
         </p>
 
-        <label className="mt-4 flex items-center gap-3 text-sm">
+        <ul className="mt-3 space-y-1 text-sm text-ink/70">
+          <li className="flex gap-2">
+            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-clay" />
+            Zelle, PayPal, Binance, USDT y efectivo en divisas: se añade la tasa.
+          </li>
+          <li className="flex gap-2">
+            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-clay" />
+            Pago Móvil, transferencia nacional y C2P: nada. Los bolívares están al 0 %
+            desde el Decreto 4.972 de julio de 2024.
+          </li>
+        </ul>
+
+        <label className="mt-4 flex items-start gap-3 text-sm">
           <input
             name="igtfEnabled"
             type="checkbox"
             defaultChecked={settings.igtf_enabled}
             onChange={(e) => setIgtf(e.target.checked)}
-            className="h-4 w-4"
+            className="mt-0.5 h-4 w-4"
           />
-          Somos contribuyente especial y recaudamos IGTF
+          <span>
+            Somos contribuyente especial y recaudamos IGTF
+            <span className="mt-0.5 block text-xs text-ink/60">
+              Solo puede cobrarlo quien esté calificado como sujeto pasivo especial por
+              el SENIAT. Si no lo eres, cobrarlo es improcedente — déjalo apagado.
+            </span>
+          </span>
         </label>
 
         {igtf && (

@@ -59,6 +59,17 @@ export type Quote =
       total_ves: number
       deposit_ratio: number
       deposit_usd: number
+      /**
+       * IGTF proyectado.
+       *
+       * No forma parte del precio: lo causa el medio de pago, y al cotizar
+       * todavía no se sabe cuál será. Pagando en bolívares el desembolso es
+       * `total_usd`; pagando en divisas, `total_divisas_usd`.
+       */
+      igtf_enabled: boolean
+      igtf_rate: number
+      igtf_usd: number
+      total_divisas_usd: number
     }
 
 export interface Database {
@@ -525,8 +536,13 @@ export interface Database {
           status: PaymentStatus
           currency: 'USD' | 'VES'
           amount: number
+          /** Lo que abona a la estadía: el bruto menos el IGTF. */
           amount_usd: number
           rate_used: number | null
+          /** Parte del pago que es IGTF, ya descontada de `amount_usd`. */
+          igtf_usd: number
+          /** Alícuota aplicada, congelada. Null cuando no se cobró. */
+          igtf_rate: number | null
           origin: string | null
           reference: string | null
           paid_at: string | null
@@ -555,6 +571,8 @@ export interface Database {
           amount: number
           amount_usd: number
           rate_used?: number | null
+          igtf_usd?: number
+          igtf_rate?: number | null
           origin?: string | null
           reference?: string | null
           paid_at?: string | null

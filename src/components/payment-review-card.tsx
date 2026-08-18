@@ -31,7 +31,10 @@ export type ReviewPayment = {
   method: PaymentMethod
   currency: 'USD' | 'VES'
   amount: number
+  /** Lo que abona a la reserva: el bruto menos el IGTF. */
   amount_usd: number
+  /** Parte del bruto que es impuesto. Cero si no se recauda IGTF. */
+  igtf_usd: number
   origin: string | null
   reference: string | null
   paid_at: string | null
@@ -101,10 +104,22 @@ export function PaymentReviewCard({ payment }: { payment: ReviewPayment }) {
           {money(payment.amount, payment.currency)}
           {payment.currency !== 'USD' && (
             <span className="ml-2 text-base font-normal text-ink/70">
-              ≈ {money(payment.amount_usd, 'USD')}
+              ≈ {money(payment.amount_usd + payment.igtf_usd, 'USD')}
             </span>
           )}
         </p>
+
+        {/*
+          Con IGTF, el importe grande es lo que se movió y no lo que abona la
+          reserva. Contrastar el comprobante contra la cifra equivocada es
+          rechazar un pago correcto, así que se desglosa.
+        */}
+        {payment.igtf_usd > 0 && (
+          <p className="mt-1 text-sm text-ink/70">
+            {money(payment.amount_usd, 'USD')} para la reserva ·{' '}
+            {money(payment.igtf_usd, 'USD')} de IGTF, que se entera al SENIAT
+          </p>
+        )}
 
         {required !== null && (
           <p className={`mt-1 text-sm ${mismatch ? 'text-amber-700' : 'text-ink/70'}`}>
