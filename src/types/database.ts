@@ -441,6 +441,8 @@ export interface Database {
           expires_at: string | null
           cancelled_at: string | null
           cancel_reason: string | null
+          /** Lo que la política obligaba a devolver al cancelar. Congelado; ver 0023. */
+          refund_due_usd: number | null
           /** Quién confirmó sin cubrir el anticipo. Null en las confirmadas por pago. */
           manual_confirmation_by: string | null
           manual_confirmation_reason: string | null
@@ -478,6 +480,7 @@ export interface Database {
           expires_at?: string | null
           cancelled_at?: string | null
           cancel_reason?: string | null
+          refund_due_usd?: number | null
           manual_confirmation_by?: string | null
           manual_confirmation_reason?: string | null
           manual_confirmation_at?: string | null
@@ -848,6 +851,18 @@ export interface Database {
       staff_check_in: { Args: { p_code: string }; Returns: Json }
       staff_check_out: { Args: { p_code: string; p_force?: boolean }; Returns: Json }
       staff_cancel_booking: { Args: { p_code: string; p_reason: string | null }; Returns: Json }
+      staff_record_refund: {
+        Args: {
+          p_code: string
+          p_method: PaymentMethod
+          p_currency: string
+          p_amount: number
+          p_reference?: string | null
+          p_paid_at?: string | null
+          p_notes?: string | null
+        }
+        Returns: Json
+      }
       record_gateway_payment: {
         Args: {
           p_code: string

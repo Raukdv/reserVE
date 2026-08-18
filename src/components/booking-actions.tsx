@@ -5,6 +5,7 @@ import {
   recordPayment,
   confirmWithoutPayment,
   cancelBooking,
+  recordRefund,
   checkIn,
   checkOut,
   type BookingActionState,
@@ -45,6 +46,9 @@ export function BookingActions({
   outstandingUsd,
   rate,
   refund,
+  refundDueUsd,
+  refundedUsd,
+  paidUsd,
 }: {
   code: string
   status: string
@@ -53,9 +57,20 @@ export function BookingActions({
   rate: number
   /** Qué tocaría devolver si se cancelara ahora, según la política. */
   refund?: RefundPreview | null
+  /** Lo que la política obligó a devolver al cancelar. Null si no se canceló. */
+  refundDueUsd?: number | null
+  /** Lo ya devuelto. */
+  refundedUsd?: number
+  /** Lo que el huésped llegó a pagar: techo de cualquier devolución. */
+  paidUsd?: number
 }) {
   const open = status === 'pending' || status === 'confirmed' || status === 'checked_in'
-  if (!open) return null
+
+  // Una reserva cancelada ya no admite acciones de estadía, pero puede quedar
+  // dinero por devolver — y eso hay que poder anotarlo.
+  const owes = status === 'cancelled' && (paidUsd ?? 0) > (refundedUsd ?? 0)
+
+  if (!open && !owes) return null
 
   return (
     <section className="mt-5 rounded-2xl border border-ink/10 bg-white p-6">
@@ -67,11 +82,177 @@ export function BookingActions({
         {status === 'confirmed' && <StayStep code={code} step="in" />}
         {status === 'checked_in' && <StayStep code={code} step="out" />}
 
-        <RecordPayment code={code} suggested={outstandingUsd} rate={rate} />
+        {open && <RecordPayment code={code} suggested={outstandingUsd} rate={rate} />}
         {status === 'pending' && <ConfirmWithoutPayment code={code} />}
-        <Cancel code={code} refund={refund} />
+        {open && <Cancel code={code} refund={refund} />}
+
+        {owes && (
+          <RecordRefund
+            code={code}
+            dueUsd={refundDueUsd ?? null}
+            refundedUsd={refundedUsd ?? 0}
+            paidUsd={paidUsd ?? 0}
+            rate={rate}
+          />
+        )}
       </div>
     </section>
+  )
+}
+
+/**
+ * Anota una devolución ya hecha.
+ *
+ * Deliberadamente separada de cancelar. Cancelar genera una deuda; el dinero
+ * sale después, puede tardar días, puede ir en varias veces y puede salir por
+ * un canal distinto al del cobro. Anotarla al cancelar sería dar por movido un
+ * dinero que todavía está en la cuenta.
+ */
+function RecordRefund({
+  code,
+  dueUsd,
+  refundedUsd,
+  paidUsd,
+  rate,
+}: {
+  code: string
+  dueUsd: number | null
+  refundedUsd: number
+  paidUsd: number
+  rate: number
+}) {
+  const [state, action, pending] = useActionState<BookingActionState, FormData>(
+    recordRefund,
+    {},
+  )
+  const [currency, setCurrency] = useState<'USD' | 'VES'>('USD')
+  const [open, setOpen] = useState(false)
+
+  const money = (value: number) =>
+    new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD' }).format(value)
+
+  // Lo que falta por política, acotado por lo que queda en caja: no se puede
+  // devolver más de lo que entró aunque la política dijera otra cosa.
+  const available = Math.max(0, paidUsd - refundedUsd)
+  const pendingUsd = dueUsd === null ? null : Math.max(0, dueUsd - refundedUsd)
+  const suggested = Math.min(pendingUsd ?? available, available)
+
+  return (
+    <div className="border-t border-ink/10 pt-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="text-sm font-medium">Devolución</p>
+        {refundedUsd > 0 && (
+          <p className="text-xs text-ink/60">Ya devuelto {money(refundedUsd)}</p>
+        )}
+      </div>
+
+      <p className="mt-1 text-sm text-ink/70">
+        {pendingUsd === null ? (
+          <>
+            Esta reserva no dejó una devolución calculada. Puedes anotar una igual si la
+            acordaste aparte; el tope son los {money(available)} que llegó a pagar.
+          </>
+        ) : pendingUsd > 0 ? (
+          <>
+            Quedan <strong className="font-medium text-ink">{money(pendingUsd)}</strong> por
+            devolver de los {money(dueUsd!)} que marcó la política.
+          </>
+        ) : (
+          <>La devolución está saldada. Puedes anotar otra si acordaste algo más.</>
+        )}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-3 rounded-lg border border-ink/15 px-4 py-2 text-sm transition hover:border-ink/40"
+      >
+        {open ? 'Cerrar' : 'Anotar devolución'}
+      </button>
+
+      {open && (
+        <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input type="hidden" name="code" value={code} />
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink">Canal</span>
+            <select name="method" className={field} defaultValue="zelle">
+              {STAFF_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {METHODS[m].label}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-ink/60">
+              Puede ser distinto al del cobro.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink">Moneda</span>
+            <select
+              name="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as 'USD' | 'VES')}
+              className={field}
+            >
+              <option value="USD">USD</option>
+              <option value="VES">VES</option>
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink">
+              Monto devuelto ({currency})
+            </span>
+            <input
+              name="amount"
+              type="number"
+              min={0}
+              step="0.01"
+              defaultValue={
+                currency === 'USD' ? suggested.toFixed(2) : (suggested * rate).toFixed(2)
+              }
+              className={field}
+            />
+            {currency === 'VES' && (
+              <span className="mt-1 block text-xs text-ink/60">
+                Se convierte a la tasa congelada de la reserva, {rate.toLocaleString('es-VE')}.
+              </span>
+            )}
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink">
+              Referencia <span className="text-ink/60">(opcional)</span>
+            </span>
+            <input name="reference" className={field} placeholder="ZL-8842019" />
+          </label>
+
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-xs font-medium text-ink">
+              Nota <span className="text-ink/60">(opcional)</span>
+            </span>
+            <input
+              name="notes"
+              className={field}
+              placeholder="Lo acordado, si difiere de la política"
+            />
+          </label>
+
+          <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
+            <button
+              disabled={pending}
+              className="rounded-lg bg-ink px-5 py-2 text-sm text-sand disabled:opacity-50"
+            >
+              {pending ? 'Anotando…' : 'Anotar devolución'}
+            </button>
+            {state.ok && <span className="text-sm text-moss">{state.ok}</span>}
+            {state.error && <span className="text-sm text-red-700">{state.error}</span>}
+          </div>
+        </form>
+      )}
+    </div>
   )
 }
 

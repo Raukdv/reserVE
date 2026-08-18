@@ -242,12 +242,50 @@ siguientes son `balance`.
 
 ---
 
-## Lo que no cubre
+## Las devoluciones
 
-**Los reembolsos no se registran.** `payment_kind = 'refund'` y `payment_status
-= 'refunded'` existen en el enum y **nada los escribe**.
-`staff_cancel_booking()` cancela y libera las fechas, pero el dinero devuelto no
-queda en el historial de la reserva. Es el hueco más grande de este flujo.
+Cancelar y devolver son **dos hechos distintos**, y se registran por separado.
+
+Cancelar genera una **obligación**: `staff_cancel_booking()` cotiza la política
+y congela el resultado en `bookings.refund_due_usd`. Se congela por lo mismo que
+la tasa y el desglose de cargos — recalcularlo meses después, con otros tramos o
+precios, cambiaría una deuda ya contraída.
+
+Devolver el dinero es un **acto posterior**. Puede tardar días, hacerse en varias
+veces, o salir por un canal distinto al del cobro: devolver un Pago Móvil por
+Zelle es corriente. Anotarlo en el momento de cancelar sería afirmar que el
+dinero se movió cuando sigue en la cuenta.
+
+`staff_record_refund()` anota cada devolución realmente hecha, con su canal,
+importe, referencia y nota.
+
+### Por qué `status = 'refunded'` y no `'approved'`
+
+Ocho funciones calculan lo pagado con `sum(amount_usd) where status =
+'approved'`. Una devolución guardada como aprobada inflaría ese total, y la
+reserva parecería **más** pagada cuanto más dinero se hubiera devuelto.
+
+Guardarlas como `'refunded'` las deja fuera de las ocho sin tocar ninguna, y a la
+vez dentro de la lista de movimientos de `get_booking()`, que no filtra por
+estado — que es justo donde tienen que verse.
+
+El importe va **positivo**, como cualquier pago: el sentido lo lleva `kind`, no
+el signo. En la ficha se pinta con un menos delante, porque en una lista mezclada
+con los cobros una devolución sin signo se lee como uno más.
+
+### El tope lo pone la caja, no la política
+
+No se puede devolver más de lo que llegó a entrar, aunque la política dijera otra
+cosa. La comprobación es sobre lo cobrado y aprobado menos lo ya devuelto, y el
+rechazo dice cuánto queda disponible.
+
+Al revés sí puede pasar: devolver menos de lo que marcaba la política, si se
+acordó así. Por eso el formulario admite un importe libre y una nota, y la ficha
+muestra lo que falta sin impedir cerrarlo.
+
+---
+
+## Lo que no cubre
 
 **El IGTF no se calcula.** Se configura en Ajustes —activarlo y su tasa— y
 `bookings.igtf_ves` existe como columna, pero ninguna función lo aplica:
@@ -280,6 +318,7 @@ nada recuerda que falta salvo la propia reserva.
 | Cuentas de cobro | Migración `0006` |
 | Pasarelas y liquidación | `record_gateway_payment()`, `settle_booking()`, migración `0010` |
 | Cobro y confirmación manual | `staff_record_payment()`, `staff_confirm_booking()`, migración `0011` |
+| Devoluciones | `staff_record_refund()` y `refund_due_usd`, migración `0023` |
 | Referencia única | Índice parcial, migración `0001` |
 
 Decisiones 3, 4, 5 y 6 de `ARCHITECTURE.md`.

@@ -69,9 +69,9 @@ export default async function BookingDetail({
       guest_name, guest_email, guest_phone, guest_document, notes,
       subtotal_usd, fees_usd, fees_breakdown, discount_usd, total_usd, total_ves,
       rate_snapshot, rate_date, deposit_ratio, expires_at, created_at,
-      manual_confirmation_reason, cancel_reason,
+      manual_confirmation_reason, cancel_reason, refund_due_usd,
       units ( name, slug ),
-      payments ( method, status, currency, amount, amount_usd, reference, created_at )
+      payments ( kind, method, status, currency, amount, amount_usd, reference, created_at )
     `)
     .eq('code', code.toUpperCase())
     .maybeSingle()
@@ -104,6 +104,12 @@ export default async function BookingDetail({
     : { data: null }
 
   const refund = refundData as RefundPreview | null
+
+  // Lo ya devuelto. Las devoluciones se guardan con status 'refunded', que es lo
+  // que las mantiene fuera de las sumas de «pagado» sin dejar de constar aquí.
+  const refundedUsd = payments
+    .filter((p) => p.kind === 'refund' && p.status === 'refunded')
+    .reduce((sum, p) => sum + Number(p.amount_usd), 0)
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
@@ -235,19 +241,27 @@ export default async function BookingDetail({
             */}
             {ordered.map((p, i) => {
               const status = PAYMENT_STATUS[p.status]
+              // Una devolución es dinero que sale. Sin el signo, en una lista
+              // mezclada con los cobros se lee como uno más y la reserva parece
+              // haber recaudado el doble.
+              const out = p.kind === 'refund'
               return (
                 <li key={i} className="flex flex-wrap items-start justify-between gap-3 py-3 text-sm">
                   <span className="min-w-0">
                     <span className="text-ink/60">{i + 1}.</span>{' '}
+                    {out && <span className="text-ink/70">Devolución · </span>}
                     {METHODS[p.method as PaymentMethod].label} ·{' '}
-                    <strong className="font-medium">
+                    <strong className={`font-medium ${out ? 'text-ink/70' : ''}`}>
+                      {out && '−'}
                       {new Intl.NumberFormat('es-VE', {
                         style: 'currency',
                         currency: p.currency,
                       }).format(p.amount)}
                     </strong>
                     {p.currency !== 'USD' && (
-                      <span className="text-ink/60"> ≈ {usd(p.amount_usd)}</span>
+                      <span className="text-ink/60">
+                        {' '}≈ {out && '−'}{usd(p.amount_usd)}
+                      </span>
                     )}
                     <span className="mt-0.5 block text-xs text-ink/60">
                       {when(p.created_at)}
@@ -281,6 +295,9 @@ export default async function BookingDetail({
         outstandingUsd={suggestedCharge}
         rate={Number(booking.rate_snapshot)}
         refund={refund}
+        refundDueUsd={booking.refund_due_usd === null ? null : Number(booking.refund_due_usd)}
+        refundedUsd={refundedUsd}
+        paidUsd={collection.paidUsd}
       />
 
       {booking.manual_confirmation_reason && (

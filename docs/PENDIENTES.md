@@ -103,16 +103,17 @@ consecuencia práctica.
 Los cargos —generales y por unidad, con porcentajes sobre base— entraron después
 de que el cobro estuviera construido. Conviene repasar con ese modelo delante:
 
-- **Reembolsos.** La app calcula cuánto devolver, pero no mueve el dinero: ni con
-  Stripe —hay que hacerlo desde su panel— ni con Zelle. ¿Se registra el reembolso
-  como un `payment` de tipo `refund`? Hoy ese valor del enum existe sin usarse.
+- ~~**Reembolsos.**~~ Resuelto en la migración `0023`: cancelar congela lo que se
+  debe en `refund_due_usd`, y `staff_record_refund()` anota cada devolución hecha
+  con su canal, referencia y nota. La app sigue sin mover el dinero —eso se hace
+  en Stripe o en el banco— pero ya queda constancia de que salió. Ver
+  `docs/funciones/cobro-y-verificacion.md`.
 - **Anticipo sobre qué base.** El anticipo se calcula sobre el total con cargos
   incluidos. ¿Es lo que se quiere, o debería excluir impuestos?
 - **IGTF.** Sigue siendo una bandera aparte en `app_settings`, anterior al modelo
   de cargos. Podría ser un cargo de porcentaje más, con la salvedad de que solo
   aplica a pagos en divisa, cosa que ningún cargo sabe hoy.
-- **`units.cleaning_fee_usd`.** Migrada a un cargo, pero la columna sigue ahí sin
-  usarse. Retirarla junto con las referencias que queden.
+- ~~**`units.cleaning_fee_usd`.**~~ Retirada en la migración `0019`.
 
 ---
 

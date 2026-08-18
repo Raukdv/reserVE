@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getProfile } from '@/lib/supabase/server'
 import { loadBookingEmail, sendPaymentApproved } from '@/lib/email'
+import { usd } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
 import type { PaymentMethod } from '@/types/database'
 
@@ -254,7 +255,7 @@ export async function cancelBooking(
 
   if (error) return { error: 'No se pudo cancelar.' }
 
-  const result = data as { ok: boolean; error?: string }
+  const result = data as { ok: boolean; error?: string; refund_due_usd?: number }
   if (!result.ok) return { error: ERRORS[result.error ?? ''] ?? 'No se pudo cancelar.' }
 
   revalidatePath(`/admin/reservas/${code}`)
@@ -262,5 +263,97 @@ export async function cancelBooking(
   revalidatePath('/admin/calendario')
   revalidatePath('/alojamientos', 'layout')
 
-  return { ok: 'Reserva cancelada y fechas liberadas.' }
+  // Cancelar deja una deuda, no un pago. Se dice el importe pero no se da por
+  // devuelto: el dinero sale de la cuenta cuando alguien lo envía, y eso se
+  // anota aparte.
+  const due = Number(result.refund_due_usd ?? 0)
+
+  return {
+    ok:
+      due > 0
+        ? `Reserva cancelada y fechas liberadas. Quedan ${usd(due)} por devolver.`
+        : 'Reserva cancelada y fechas liberadas. No corresponde devolución.',
+  }
+}
+
+const refundSchema = z.object({
+  code: z.string().trim().min(4),
+  method: z.enum(ALL_METHODS),
+  amount: z.coerce.number().positive('El monto debe ser mayor que cero'),
+  currency: z.enum(['USD', 'VES']),
+  reference: z.string().trim().max(120).optional().or(z.literal('')),
+  notes: z.string().trim().max(300).optional().or(z.literal('')),
+})
+
+/**
+ * Anota una devolución ya hecha.
+ *
+ * Se registra el hecho, no la intención: el importe que salió, por dónde y con
+ * qué referencia. Puede ser parcial, en varias veces y por un canal distinto al
+ * del cobro — devolver un Pago Móvil por Zelle es corriente.
+ */
+export async function recordRefund(
+  _prev: BookingActionState,
+  formData: FormData,
+): Promise<BookingActionState> {
+  await requireStaff()
+
+  const parsed = refundSchema.safeParse({
+    code: formData.get('code'),
+    method: formData.get('method'),
+    amount: formData.get('amount'),
+    currency: formData.get('currency'),
+    reference: formData.get('reference') ?? '',
+    notes: formData.get('notes') ?? '',
+  })
+
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  const d = parsed.data
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('staff_record_refund', {
+    p_code: d.code,
+    p_method: d.method,
+    p_currency: d.currency,
+    p_amount: d.amount,
+    p_reference: d.reference || null,
+    p_paid_at: null,
+    p_notes: d.notes || null,
+  })
+
+  if (error) return { error: 'No se pudo registrar la devolución.' }
+
+  const result = data as {
+    ok: boolean
+    error?: string
+    amount_usd?: number
+    pending_usd?: number | null
+    available_usd?: number
+  }
+
+  if (!result.ok) {
+    if (result.error === 'exceeds_paid') {
+      const left = Number(result.available_usd ?? 0)
+      return {
+        error:
+          left > 0
+            ? `No se puede devolver más de lo que entró. Quedan ${usd(left)} disponibles.`
+            : 'Ya se devolvió todo lo que el huésped llegó a pagar.',
+      }
+    }
+    return { error: ERRORS[result.error ?? ''] ?? 'No se pudo registrar la devolución.' }
+  }
+
+  revalidatePath(`/admin/reservas/${d.code}`)
+  revalidatePath('/admin/pagos')
+
+  const pending = result.pending_usd
+  const rest =
+    pending === null || pending === undefined
+      ? ''
+      : pending > 0
+        ? ` Quedan ${usd(pending)} por devolver.`
+        : ' La devolución queda saldada.'
+
+  return { ok: `Devolución de ${usd(Number(result.amount_usd ?? 0))} registrada.${rest}` }
 }
