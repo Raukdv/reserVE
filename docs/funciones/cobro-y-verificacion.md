@@ -356,6 +356,54 @@ nada recuerda que falta salvo la propia reserva.
 
 ---
 
+## El anticipo se calcula sobre el total con cargos
+
+```
+deposit_usd = total_usd × deposit_ratio
+```
+
+Y `total_usd` es el que compone `compute_fees()`: noches más cargos de monto más
+cargos de porcentaje. Así que el anticipo arrastra su parte proporcional de la
+limpieza y de los impuestos.
+
+Estuvo un tiempo como decisión no tomada — se programó así sin razonarlo. Al
+revisarlo, hay dos motivos para dejarlo:
+
+**El legal, que es el que manda.** El artículo 13 de la Ley del IVA fija el hecho
+imponible de un servicio en el momento en que *se paga la contraprestación*, nace
+la obligación de pagar, se emite la factura o se pone el bien a disposición —
+**lo que ocurra primero**. Cobrar un anticipo ya causa el IVA sobre ese anticipo:
+no se espera a que el huésped llegue.
+
+Calculado sobre las noches sin impuestos, el negocio debería igualmente el IVA
+proporcional de lo recibido y lo estaría adelantando de su bolsillo hasta que
+entrara el saldo. Sobre el total con cargos, el anticipo ya trae dentro la parte
+que toca declarar ese período.
+
+**El del sector.** En Booking el prepago es un porcentaje del precio total, que
+incluye impuestos y cargos. Opera pide el depósito como importe o como porcentaje
+del total de la reserva. Airbnb parte el pago normalmente al 50 %, con los
+impuestos de alojamiento calculados aparte.
+
+Ejemplo, con IVA del 16 % y anticipo del 30 %:
+
+```
+noches            100,00
+IVA (16 %)         16,00
+                  ───────
+total             116,00
+anticipo (30 %)    34,80   ← 30 % de 116, no de 100
+```
+
+El anticipo arrastra también su parte de la limpieza, que suele no ser
+reembolsable. No hay contradicción con la política de cancelación: qué vuelve de
+cada cargo lo decide su casilla `refundable`, no el anticipo.
+
+El IGTF va **encima** de esto y no dentro, porque lo causa el medio de pago. Un
+anticipo de 34,80 pagado por Zelle son 35,84 transferidos.
+
+---
+
 ## Referencias del IGTF
 
 Consultadas en agosto de 2026.
@@ -368,6 +416,16 @@ Consultadas en agosto de 2026.
 | [Reforma del IGTF: casos prácticos — Gálac](https://galac.com/galac-blog/reforma-del-igtf-algunos-casos-practicos/) | La base incluye el IVA: 100 + 16 de IVA = 116, IGTF = 3 % de 116 |
 | [IGTF y pagos en dólares: 10 preguntas — Prodavinci](https://prodavinci.com/igtf-y-pagos-en-dolares-10-preguntas-y-respuestas/) | Quién es sujeto pasivo especial y por qué solo ellos perciben el impuesto |
 | [La coletilla del IGTF en facturas — Nayma](https://naymaconsultores.com/la-coletilla-igtf-en-facturas/) | Qué reflejar en la factura: porcentaje, monto en divisas y equivalente en bolívares |
+
+## Referencias del anticipo
+
+| Fuente | Qué aporta |
+|---|---|
+| [Temporalidad del hecho imponible del IVA en la prestación de servicios](https://gerenciaytributos.blogspot.com/2018/06/temporalidad-del-hecho-imponible-del.html) | Artículo 13: el hecho imponible ocurre al pagar, al nacer la obligación, al facturar o al poner a disposición — lo que ocurra primero. Cobrar un anticipo ya causa el IVA |
+| [Ley que establece el Impuesto al Valor Agregado (texto)](http://www.ucv.ve/fileadmin/user_upload/auditoria_interna/Archivos/Material_de_Descarga/Ley_que_Establece_el_Impuesto_al_Valor_Agregado_-_37.999.pdf) | El articulado, para contrastar |
+| [Cancellation, deposit and prepayment policies — Booking.com for Partners](https://partner.booking.com/en-us/solutions/cancellation-deposit-and-prepayment-policies) | El prepago es un porcentaje del precio total, impuestos y cargos incluidos |
+| [Managing Reservation Deposit Request — Oracle OPERA Cloud](https://docs.oracle.com/en/industries/hospitality/opera-cloud/24.4/ocsuh/t_managing_reservation_deposit_and_cancellation.htm) | El depósito se pide como importe fijo o como porcentaje del total de la reserva |
+| [Airbnb ahora permite pagar menos por adelantado — TechCrunch](https://techcrunch.com/2025/08/14/airbnb-will-allow-us-users-to-book-stays-without-paying-up-front) | El pago partido ronda el 50 %, con el resto días antes de la llegada |
 
 ---
 

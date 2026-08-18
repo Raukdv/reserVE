@@ -98,18 +98,23 @@ consecuencia práctica.
 
 ---
 
-## Revisar el flujo de cobro con el modelo de cargos ya puesto
+## ~~Revisar el flujo de cobro con el modelo de cargos ya puesto~~ — cerrado
 
 Los cargos —generales y por unidad, con porcentajes sobre base— entraron después
-de que el cobro estuviera construido. Conviene repasar con ese modelo delante:
+de que el cobro estuviera construido, y este repaso quedaba pendiente. Los cuatro
+puntos están resueltos; se conservan porque documentan **por qué** cada uno quedó
+como quedó.
 
 - ~~**Reembolsos.**~~ Resuelto en la migración `0023`: cancelar congela lo que se
   debe en `refund_due_usd`, y `staff_record_refund()` anota cada devolución hecha
   con su canal, referencia y nota. La app sigue sin mover el dinero —eso se hace
   en Stripe o en el banco— pero ya queda constancia de que salió. Ver
   `docs/funciones/cobro-y-verificacion.md`.
-- **Anticipo sobre qué base.** El anticipo se calcula sobre el total con cargos
-  incluidos. ¿Es lo que se quiere, o debería excluir impuestos?
+- ~~**Anticipo sobre qué base.**~~ Revisado: se queda sobre el total con cargos.
+  El artículo 13 de la Ley del IVA hace que cobrar un anticipo ya cause el
+  impuesto, así que excluirlo obligaría al negocio a adelantarlo de su bolsillo.
+  Coincide además con Booking y Opera. Ver
+  `docs/funciones/cobro-y-verificacion.md`.
 - ~~**IGTF.**~~ Resuelto en la migración `0024`, y no como un cargo: lo grava el
   medio de pago, no la estadía, así que vive en `payments.igtf_usd` y se calcula
   al cobrar. La cotización solo lo proyecta. Ver
