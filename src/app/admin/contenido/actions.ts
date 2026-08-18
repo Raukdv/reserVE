@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { createClient, createAdminClient, getProfile } from '@/lib/supabase/server'
 import { MAX_PHOTO_BYTES, MAX_SITE_PHOTOS_PER_SECTION } from '@/lib/media-limits'
+import { SITE_IMAGE_SECTIONS, SITE_SECTION_KEYS, type SiteSectionKey } from '@/lib/site-sections'
 import type { Json } from '@/types/database'
 
 export type ContentState = { error?: string; ok?: string }
@@ -46,6 +47,13 @@ const SECTIONS = {
     title: z.string().trim().max(120),
     body: z.string().trim().max(2000),
     address: z.string().trim().max(200),
+    /*
+      Coordenadas del mapa. Vacías si no se ponen: el rango se valida para que
+      un dedo torpe no mande el mapa al océano, y se guardan como número para no
+      tener que reinterpretar una cadena en cada render.
+    */
+    lat: z.coerce.number().min(-90).max(90).or(z.literal('')).optional(),
+    lng: z.coerce.number().min(-180).max(180).or(z.literal('')).optional(),
   }),
   faq: z.object({
     title: z.string().trim().max(120),
@@ -134,6 +142,7 @@ function safeParse(value: string): unknown {
 
 const SITE_BUCKET = 'site-media'
 
+
 const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png']
 const EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
@@ -154,8 +163,8 @@ export async function uploadSiteImage(
 ): Promise<ContentState> {
   await requireStaff()
 
-  const section = String(formData.get('section') ?? '').trim()
-  if (!section) return { error: 'Sección no válida.' }
+  // Sin destino: se elige después, en la propia galería.
+  const section = 'sin_asignar'
 
   const photo = formData.get('image')
   if (!(photo instanceof File) || photo.size === 0) return { error: 'Elige una imagen.' }
@@ -241,4 +250,35 @@ export async function deleteSiteImage(
   revalidatePath('/', 'layout')
 
   return { ok: 'Imagen eliminada.' }
+}
+
+/** Cambia a qué sección de la web pertenece una foto. */
+export async function setSiteImageSection(
+  _prev: ContentState,
+  formData: FormData,
+): Promise<ContentState> {
+  await requireStaff()
+
+  const id = z.string().uuid().safeParse(formData.get('id'))
+  const section = String(formData.get('section') ?? '')
+
+  if (!id.success) return { error: 'Imagen no válida.' }
+  if (!SITE_SECTION_KEYS.includes(section as SiteSectionKey)) {
+    return { error: 'Sección no válida.' }
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('staff_move_site_image', {
+    p_id: id.data,
+    p_section: section,
+  })
+
+  const result = data as { ok: boolean } | null
+  if (error || !result?.ok) return { error: 'No se pudo mover la imagen.' }
+
+  revalidatePath('/admin/contenido')
+  revalidatePath('/', 'layout')
+
+  const label = SITE_IMAGE_SECTIONS.find((s) => s.key === section)?.label ?? section
+  return { ok: `Movida a ${label}.` }
 }

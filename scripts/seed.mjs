@@ -16,6 +16,16 @@ for (const line of readFileSync(new URL('../.env.local', import.meta.url), 'utf8
 
 const RESET = process.argv.includes('--reset')
 
+/*
+  Las unidades de ejemplo, por su dirección web.
+
+  Antes se reconocían por la propiedad de la que colgaban. Al retirarse esa tabla
+  —el negocio es uno, ver la migración 0030— hace falta otra forma de saber cuáles
+  puso este script y cuáles creó el operador. El slug sirve y es estable.
+*/
+const SEEDED = ['coral', 'manglar', 'suite-bahia', 'ceiba']
+const SEEDED_SLUGS = SEEDED.map((s) => `'${s}'`).join(', ')
+
 const client = new pg.Client({
   connectionString: process.env.SUPABASE_DB_URL,
   ssl: { rejectUnauthorized: false },
@@ -28,24 +38,23 @@ try {
     // Orden obligado por las claves foráneas: bookings.unit_id no cascadea, y
     // unit_holds.hold_id está en RESTRICT para que no se pueda borrar un hold
     // dejando la reserva sin fechas retenidas. Se va de dentro hacia fuera.
-    const seededUnits = `
-      select u.id from units u
-      join properties p on p.id = u.property_id
-      where p.slug = 'bahia-serena'`
+    // Las unidades de ejemplo se reconocen por su slug: ya no hay propiedad de
+    // la que colgar para identificarlas.
+    const seededUnits = `select id from units where slug in (${SEEDED_SLUGS})`
 
     await client.query(
       `delete from payments where booking_id in (
          select id from bookings where unit_id in (${seededUnits}))`,
     )
     await client.query(`delete from bookings where unit_id in (${seededUnits})`)
-    await client.query(`delete from properties where slug = 'bahia-serena'`)
+    await client.query(`delete from units where slug in (${SEEDED_SLUGS})`)
     await client.query(`delete from site_content`)
     await client.query(`delete from payment_accounts`)
     console.log('  datos de ejemplo anteriores borrados')
   }
 
   const { rows: existing } = await client.query(
-    `select id from properties where slug = 'bahia-serena'`,
+    `select id from units where slug in (${SEEDED_SLUGS}) limit 1`,
   )
   if (existing.length) {
     console.log('  ya sembrado — usa --reset para rehacerlo')
@@ -67,14 +76,13 @@ try {
      where id = true`,
   )
 
-  const { rows: [property] } = await client.query(
-    `insert into properties (name, slug, description, address, city, latitude, longitude)
-     values (
-       'Posada Bahía Serena', 'bahia-serena',
-       'Posada frente al mar con seis habitaciones, terraza y desayuno incluido.',
-       'Calle La Playa, sector Puerto Colombia', 'Choroní, Aragua',
-       10.5069, -67.6006
-     ) returning id`,
+  // El negocio es uno y vive en app_settings: ya no hay tabla de propiedades.
+  await client.query(
+    `update app_settings
+        set business_name    = 'Posada Bahía Serena',
+            business_city    = 'Choroní, Aragua',
+            business_address = 'Calle La Playa, sector Puerto Colombia'
+      where id`,
   )
 
   // --- Amenidades ------------------------------------------------------------
@@ -156,12 +164,12 @@ try {
   for (const [i, u] of UNITS.entries()) {
     const { rows: [unit] } = await client.query(
       `insert into units (
-         property_id, name, slug, description, max_guests, bedrooms, beds, bathrooms,
+         name, slug, description, max_guests, bedrooms, beds, bathrooms,
          base_price_usd, min_nights, advance_notice_days,
          is_published, sort_order
-       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,true,$11)
+       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,1,true,$10)
        returning id`,
-      [property.id, u.name, u.slug, u.description, u.max_guests, u.bedrooms, u.beds,
+      [u.name, u.slug, u.description, u.max_guests, u.bedrooms, u.beds,
        u.bathrooms, u.base_price_usd, u.min_nights, i],
     )
     unitIds[u.slug] = unit.id
@@ -312,6 +320,10 @@ try {
         + 'Desde Maracay son unas dos horas por la carretera de la montaña, atravesando el Parque '
         + 'Nacional Henri Pittier.',
       address: 'Calle La Playa, Puerto Colombia, Choroní, Aragua',
+      // Con estas dos se dibuja el mapa de OpenStreetMap en el home. Sin ellas,
+      // esa sección cae a la foto que se haya subido en Contenido.
+      lat: 10.5069,
+      lng: -67.6006,
     },
     faq: {
       title: 'Preguntas frecuentes',

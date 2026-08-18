@@ -26,6 +26,8 @@ const settingsSchema = z.object({
   businessName: z.string().trim().min(2, 'Escribe el nombre del negocio').max(120),
   businessEmail: z.string().trim().email('Revisa el correo').or(z.literal('')),
   businessPhone: z.string().trim().max(40).or(z.literal('')),
+  businessCity: z.string().trim().max(120).or(z.literal('')),
+  businessAddress: z.string().trim().max(200).or(z.literal('')),
   currencyDisplay: z.enum(['usd', 'ves', 'both']),
   depositRatio: z.coerce
     .number()
@@ -97,6 +99,8 @@ export async function updateSettings(
     businessName: formData.get('businessName'),
     businessEmail: formData.get('businessEmail') ?? '',
     businessPhone: formData.get('businessPhone') ?? '',
+    businessCity: formData.get('businessCity') ?? '',
+    businessAddress: formData.get('businessAddress') ?? '',
     currencyDisplay: formData.get('currencyDisplay'),
     depositRatio: formData.get('depositRatio'),
     pendingTtlHours: formData.get('pendingTtlHours'),
@@ -120,6 +124,8 @@ export async function updateSettings(
       business_name: d.businessName,
       business_email: d.businessEmail || null,
       business_phone: d.businessPhone || null,
+      business_city: d.businessCity || null,
+      business_address: d.businessAddress || null,
       currency_display: d.currencyDisplay,
       // En la interfaz se maneja en porcentaje porque es como lo piensa el
       // operador; en la base es una fracción.

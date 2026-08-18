@@ -96,39 +96,9 @@ export interface Database {
         Relationships: []
       }
 
-      properties: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          description: string | null
-          address: string | null
-          city: string | null
-          latitude: number | null
-          longitude: number | null
-          timezone: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          description?: string | null
-          address?: string | null
-          city?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          timezone?: string
-          created_at?: string
-        }
-        Update: Partial<Database['public']['Tables']['properties']['Insert']>
-        Relationships: []
-      }
-
       units: {
         Row: {
           id: string
-          property_id: string
           name: string
           slug: string
           description: string | null
@@ -146,7 +116,6 @@ export interface Database {
         }
         Insert: {
           id?: string
-          property_id: string
           name: string
           slug: string
           description?: string | null
@@ -163,15 +132,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['units']['Insert']>
-        Relationships: [
-          {
-            foreignKeyName: 'units_property_id_fkey'
-            columns: ['property_id']
-            isOneToOne: false
-            referencedRelation: 'properties'
-            referencedColumns: ['id']
-          },
-        ]
+        Relationships: []
       }
 
       unit_media: {
@@ -717,6 +678,10 @@ export interface Database {
           business_name: string
           business_email: string | null
           business_phone: string | null
+          /** Sale en la portada. Ver 0030. */
+          business_city: string | null
+          /** Respaldo de la dirección; «cómo llegar» puede sobreescribirla. */
+          business_address: string | null
           currency_display: 'usd' | 'ves' | 'both'
           default_deposit_ratio: number
           pending_ttl_hours: number
@@ -738,6 +703,8 @@ export interface Database {
           business_name?: string
           business_email?: string | null
           business_phone?: string | null
+          business_city?: string | null
+          business_address?: string | null
           currency_display?: 'usd' | 'ves' | 'both'
           default_deposit_ratio?: number
           pending_ttl_hours?: number
@@ -889,6 +856,7 @@ export interface Database {
       staff_delete_unit: { Args: { p_unit_id: string }; Returns: Json }
       staff_extend_stay: { Args: { p_code: string; p_check_out: string }; Returns: Json }
       staff_set_cover: { Args: { p_media_id: string }; Returns: Json }
+      staff_move_site_image: { Args: { p_id: string; p_section: string }; Returns: Json }
       staff_add_site_image: {
         Args: { p_section: string; p_path: string; p_max?: number }
         Returns: Json

@@ -1,26 +1,26 @@
 import Link from 'next/link'
-import { getProfile } from '@/lib/supabase/server'
+import { LogOut } from 'lucide-react'
+import { createClient, getProfile } from '@/lib/supabase/server'
+import { AdminNav } from '@/components/admin-nav'
 import { logout } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
-
-const NAV = [
-  { href: '/admin', label: 'Resumen' },
-  { href: '/admin/calendario', label: 'Calendario' },
-  { href: '/admin/reservas', label: 'Reservas' },
-  { href: '/admin/pagos', label: 'Pagos' },
-  { href: '/admin/unidades', label: 'Unidades' },
-  { href: '/admin/tarifas', label: 'Tarifas' },
-  { href: '/admin/cargos', label: 'Cargos' },
-  { href: '/admin/amenidades', label: 'Amenidades' },
-  { href: '/admin/contenido', label: 'Contenido' },
-  { href: '/admin/ajustes', label: 'Ajustes' },
-]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // El middleware ya bloqueó el acceso sin rol staff; aquí solo se muestra quién
   // está dentro.
   const profile = await getProfile()
+
+  /*
+    Los pagos por verificar se cuentan aquí y no en cada página porque la señal
+    va en la navegación, que es común a todas. Es un `count` con `head`, sin
+    traer filas: una consulta indexada por visita al panel.
+  */
+  const supabase = await createClient()
+  const { count: pendingPayments } = await supabase
+    .from('payments')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'verifying')
 
   return (
     <div className="min-h-screen">
@@ -35,28 +35,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-3 text-sm">
             <span className="hidden text-ink/70 sm:inline">{profile?.full_name}</span>
+
+            {/*
+              Salir era texto suelto pegado al nombre. Con forma de control se
+              separa de la etiqueta que tiene al lado y gana un objetivo
+              pulsable de verdad, que a 14 px de alto no llegaba al mínimo.
+            */}
             <form action={logout}>
-              <button className="text-ink/70 hover:underline">Salir</button>
+              <button className="inline-flex items-center gap-2 rounded-full border border-ink/15 px-3 py-1.5 text-sm text-ink/70 transition hover:border-ink/40 hover:text-ink">
+                <LogOut className="h-4 w-4" aria-hidden />
+                Salir
+              </button>
             </form>
           </div>
         </div>
 
-        <nav className="mx-auto max-w-7xl overflow-x-auto px-6">
-          <ul className="flex gap-6 text-sm">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="block whitespace-nowrap border-b-2 border-transparent py-3 text-ink/70 transition hover:border-ink/30 hover:text-ink"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <AdminNav pendingPayments={pendingPayments ?? 0} />
       </header>
 
       {children}

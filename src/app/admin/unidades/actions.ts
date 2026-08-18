@@ -116,19 +116,11 @@ export async function saveUnit(_prev: UnitState, formData: FormData): Promise<Un
       }
     }
   } else {
-    // Toda unidad cuelga de una propiedad; con un solo negocio hay una sola.
-    const { data: property } = await supabase
-      .from('properties')
-      .select('id')
-      .order('created_at')
-      .limit(1)
-      .maybeSingle()
-
-    if (!property) return { error: 'No hay ninguna propiedad creada.' }
-
+    // Las unidades cuelgan del negocio, que es uno. Ya no hay propiedad
+    // intermedia de la que colgar — ver la migración 0030.
     const { data, error } = await supabase
       .from('units')
-      .insert({ ...row, property_id: property.id })
+      .insert(row)
       .select('id')
       .single()
 

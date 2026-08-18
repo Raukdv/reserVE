@@ -6,6 +6,7 @@ import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
 import { UnitsBook, type BookPage } from '@/components/units-book'
+import { LocationMap } from '@/components/location-map'
 import { unitCovers, siteImages } from '@/lib/media'
 import { LayoutGrid, Plus } from 'lucide-react'
 import { LinkButton } from '@/components/link-button'
@@ -20,13 +21,18 @@ const str = (s: Section, key: string, fallback = '') =>
 const list = <T,>(s: Section, key: string): T[] =>
   Array.isArray(s?.[key]) ? (s[key] as T[]) : []
 
+/** Coordenada del jsonb, o null si está vacía o no es un número usable. */
+const num = (s: Section, key: string): number | null => {
+  const value = Number(s?.[key])
+  return Number.isFinite(value) && s?.[key] !== '' ? value : null
+}
+
 export default async function HomePage() {
   const supabase = await createClient()
 
-  const [{ data: settings }, { data: property }, { data: units }, { data: content }, rates] =
+  const [{ data: settings }, { data: units }, { data: content }, rates] =
     await Promise.all([
       supabase.from('app_settings').select('*').single(),
-      supabase.from('properties').select('city, address').limit(1).maybeSingle(),
       supabase
         .from('units')
         .select('id, name, slug, description, max_guests, bedrooms, beds, base_price_usd, min_nights')
@@ -58,6 +64,8 @@ export default async function HomePage() {
     siteMedia.get('hero')?.[0] ?? (units?.[0] ? covers.get(units[0].id) : undefined)
 
   const about = siteMedia.get('about')?.[0]
+  const mapLat = num(s.location, 'lat')
+  const mapLng = num(s.location, 'lng')
   const location = siteMedia.get('location')?.[0]
 
   // Desde tres: con menos caben en un pliego y el libro sobra.
@@ -93,8 +101,8 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-sand via-sand/80 to-sand/30" />
 
           <div className="relative mx-auto max-w-6xl px-6 pb-14 pt-24 sm:pt-32">
-            {property?.city && (
-              <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{property.city}</p>
+            {settings?.business_city && (
+              <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{settings.business_city}</p>
             )}
             <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
               {str(s.hero, 'title', businessName)}
@@ -233,16 +241,28 @@ export default async function HomePage() {
               </h2>
               <p className="mt-5 text-entrada text-ink/70">{str(s.location, 'body')}</p>
               <p className="mt-6 text-descripcion text-ink/70">
-                {str(s.location, 'address', property?.address ?? '')}
+                {str(s.location, 'address', settings?.business_address ?? '')}
               </p>
             </div>
-            <UnitThumb
-              slug="mapa-ubicacion"
-              src={location?.url}
-              alt={location?.alt}
-              className="min-h-64 rounded-2xl"
-              label={location ? undefined : 'Sin foto todavía'}
-            />
+            {/*
+              El mapa manda sobre la foto: responde la pregunta de la sección.
+              Sin coordenadas cae a la foto, y sin foto al marcador de siempre.
+            */}
+            {mapLat !== null && mapLng !== null ? (
+              <LocationMap
+                lat={mapLat}
+                lng={mapLng}
+                label={str(s.location, 'address', settings?.business_address ?? '')}
+              />
+            ) : (
+              <UnitThumb
+                slug="mapa-ubicacion"
+                src={location?.url}
+                alt={location?.alt}
+                className="min-h-64 rounded-2xl"
+                label={location ? undefined : 'Sin foto todavía'}
+              />
+            )}
           </div>
         </section>
 

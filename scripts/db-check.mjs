@@ -19,7 +19,7 @@ const client = new pg.Client({
 
 const EXPECTED_TABLES = [
   'amenities', 'app_settings', 'availability_blocks', 'bookings',
-  'exchange_rates', 'payment_accounts', 'payments', 'profiles', 'properties',
+  'exchange_rates', 'payment_accounts', 'payments', 'profiles',
   'rate_fetch_log', 'season_rates', 'site_content', 'unit_amenities',
   'unit_holds', 'unit_media', 'units',
 ]
@@ -71,12 +71,9 @@ check('RLS activo en todas las tablas', rls.length === 0,
 // Prueba real de la restricción: dos reservas solapadas deben fallar.
 await client.query('begin')
 try {
-  const { rows: [prop] } = await client.query(
-    `insert into properties (name, slug) values ('__test', '__test') returning id`,
-  )
   const { rows: [unit] } = await client.query(
-    `insert into units (property_id, name, slug, base_price_usd)
-     values ($1, '__test', '__test', 50) returning id`, [prop.id],
+    `insert into units (name, slug, base_price_usd)
+     values ('__test', '__test', 50) returning id`,
   )
   await client.query(
     `insert into unit_holds (unit_id, stay, kind)

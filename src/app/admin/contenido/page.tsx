@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ContentSections } from '@/components/content-sections'
+import { SiteImages } from '@/components/site-images'
 import { siteMediaUrl } from '@/lib/media'
 import { ExternalLink } from 'lucide-react'
 import { LinkButton } from '@/components/link-button'
@@ -21,20 +22,20 @@ export default async function ContentPage() {
     ese devuelve solo URL, que es lo que necesita la web pública, y el panel
     necesita además el id de cada fila para poder borrarla.
   */
+  // Todas las fotos del sitio, con su sección: la galería es una sola y cada
+  // foto lleva encima a dónde va.
   const { data: mediaRows } = await supabase
     .from('site_media')
     .select('id, section_key, storage_path')
-    .in('section_key', ['hero', 'about', 'location'])
     .order('section_key')
     .order('sort_order')
+    .limit(60)
 
-  const images: Record<string, { id: string; url: string }[]> = {}
-  for (const row of mediaRows ?? []) {
-    ;(images[row.section_key] ??= []).push({
-      id: row.id,
-      url: siteMediaUrl(row.storage_path),
-    })
-  }
+  const images = (mediaRows ?? []).map((row) => ({
+    id: row.id,
+    url: siteMediaUrl(row.storage_path),
+    section: row.section_key,
+  }))
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8">
@@ -51,7 +52,11 @@ export default async function ContentPage() {
       </div>
 
       <div className="mt-8">
-        <ContentSections content={content} images={images} />
+        <SiteImages images={images} />
+
+        <div className="mt-5">
+          <ContentSections content={content} />
+        </div>
       </div>
 
       <p className="mt-8 text-xs text-ink/60">

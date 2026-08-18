@@ -296,7 +296,9 @@ export function SettingsForm({ settings }: { settings: Row<'app_settings'> }) {
       <section>
         <h2 className="text-base font-semibold">Negocio</h2>
         <p className="mt-1 text-descripcion text-ink/70">
-          Aparecen en la web pública, en los correos y en el pie de página.
+          Aparecen en la web pública, en los correos y en el pie de página. Son la
+          identidad del negocio: las unidades —habitaciones, casas, apartamentos— se
+          configuran aparte.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -327,6 +329,32 @@ export function SettingsForm({ settings }: { settings: Row<'app_settings'> }) {
               defaultValue={settings.business_phone ?? ''}
               className={field}
             />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-ink">Ciudad</span>
+            <input
+              name="businessCity"
+              defaultValue={settings.business_city ?? ''}
+              placeholder="Choroní, Aragua"
+              className={field}
+            />
+            <span className="mt-1 block text-xs text-ink/60">
+              Sale en la portada, encima del titular.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-ink">Dirección</span>
+            <input
+              name="businessAddress"
+              defaultValue={settings.business_address ?? ''}
+              placeholder="Calle La Playa, sector Puerto Colombia"
+              className={field}
+            />
+            <span className="mt-1 block text-xs text-ink/60">
+              La sección «cómo llegar» puede poner otra; esta es el respaldo.
+            </span>
           </label>
         </div>
       </section>
