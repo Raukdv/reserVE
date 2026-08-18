@@ -5,6 +5,7 @@ import { price } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
+import { UnitsBook, type BookPage } from '@/components/units-book'
 import { unitCovers } from '@/lib/media'
 
 export const revalidate = 300
@@ -47,6 +48,22 @@ export default async function HomePage() {
   // operador ya eligió como cara del alojamiento, y ahorra tener que subir otra
   // solo para la cabecera.
   const hero = units?.[0] ? covers.get(units[0].id) : undefined
+
+  // Desde tres: con menos caben en un pliego y el libro sobra.
+  const showBook = (units?.length ?? 0) >= 3
+
+  const bookPages: BookPage[] = (units ?? []).map((unit) => ({
+    id: unit.id,
+    name: unit.name,
+    slug: unit.slug,
+    description: unit.description,
+    meta:
+      `${unit.max_guests} huéspedes · ${unit.bedrooms} hab. · ${unit.beds} camas` +
+      (unit.min_nights > 1 ? ` · mín. ${unit.min_nights} noches` : ''),
+    price: price(unit.base_price_usd, rate, display),
+    coverUrl: covers.get(unit.id)?.url,
+    coverAlt: covers.get(unit.id)?.alt ?? unit.name,
+  }))
 
   return (
     <>
@@ -100,7 +117,29 @@ export default async function HomePage() {
           </div>
 
           {units && units.length > 0 ? (
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <>
+              {/*
+                El catálogo como un cuaderno que se hojea: reservar es *to book*,
+                y cada hoja es un alojamiento.
+
+                Desde tres unidades. Con una o dos entran en el mismo pliego y el
+                libro no aporta nada: quedan las flechas apagadas y un contador
+                que dice «1 de 1». La rejilla las enseña mejor.
+
+                Y solo aquí, en el escaparate. `/alojamientos` es el listado y se
+                queda en rejilla, que es donde se compara.
+
+                En móvil también rejilla: un pliego son dos páginas, y en 360 px
+                cada una queda en 180 —ni para la foto—. Es CSS, sin JavaScript
+                que lo sostenga.
+              */}
+              {showBook && (
+                <div className="hidden sm:block">
+                  <UnitsBook pages={bookPages} allHref="/alojamientos" />
+                </div>
+              )}
+
+              <div className={`mt-10 grid gap-6 ${showBook ? 'sm:hidden' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
               {units.map((unit) => (
                 <Link
                   key={unit.id}
@@ -127,7 +166,8 @@ export default async function HomePage() {
                   </div>
                 </Link>
               ))}
-            </div>
+              </div>
+            </>
           ) : (
             <p className="mt-10 rounded-2xl border border-dashed border-ink/20 p-12 text-center text-sm text-ink/70">
               Todavía no hay alojamientos publicados.{' '}

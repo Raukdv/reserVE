@@ -392,6 +392,33 @@ no cómo se cobra.
 
 ---
 
+## Menor — pulir el giro del cuaderno
+
+Funciona y se ve bien, pero queda como candidato a retoque. No corre prisa.
+
+Estado actual, en `src/components/units-book.tsx` y `globals.css`:
+
+- Giro de 600 ms, `cubic-bezier(.4,.05,.2,1)`. La duración es **un solo número**,
+  `FLIP_MS`, del que dependen también las tres animaciones de luz.
+- La cara de delante se oscurece al ponerse de canto; el reverso aparece en
+  sombra y se aclara. Las dos fijan su valor en el 50 % para que el relevo entre
+  caras no dé un salto de brillo.
+- Sombra proyectada sobre el pliego mientras la hoja pasa por encima.
+- El degradado va más oscuro junto al lomo, invertido en el reverso porque está
+  espejado.
+
+Lo que se probó y se descartó de momento: bajar los milisegundos. El problema no
+era el ritmo sino que faltaba la luz, y con ella el giro ya se lee como papel.
+
+Si se retoma, lo siguiente sería **curvar la hoja** — un pandeo a media vuelta,
+que es lo que hace el papel de verdad. Pide `transform` sobre pseudo-elementos y
+complica bastante el componente, así que solo compensa si el giro plano llega a
+molestar.
+
+Por debajo de 450 ms el giro deja de leerse como papel y parece un corte.
+
+---
+
 ## Medir cuánto pesan de verdad las fotos
 
 Los topes de `src/lib/media-limits.ts` —400 KB por foto, 40 por unidad— salen de

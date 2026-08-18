@@ -374,6 +374,44 @@ pinta un punto de color para todas por igual. O se usan de verdad, o sobra la
 columna — hoy es un dato que promete algo que no cumple, como pasaba con
 `BUSINESS_TIMEZONE`.
 
+### El catálogo del home es un cuaderno que se hojea
+
+Reservar es *to book*, y el listado del home pasa página a página. Cada hoja es
+un alojamiento: portada, nombre, capacidad y precio.
+
+**CSS 3D puro, sin librería.** El contenedor abre `perspective`; la hoja que gira
+lleva `transform-origin` en el lomo, así rota sobre el pliegue como el papel.
+`backface-visibility: hidden` permite pintar las dos caras en el mismo elemento
+—delante la que se va, detrás la que llega— y durante el giro se superpone una
+hoja extra que desaparece al terminar. Sin ese elemento intermedio el cambio
+sería instantáneo.
+
+El papel crema no hubo que inventarlo: `sand` ya es eso. Cada página va con un
+degradado hacia el lomo y el pliegue son dos sombras encontradas.
+
+#### Dónde sí y dónde no
+
+| | Qué se muestra | Por qué |
+|---|---|---|
+| Home, `sm` en adelante, **3+ unidades** | Cuaderno | Es el escaparate |
+| Home, 1 o 2 unidades | Rejilla | Caben en un pliego: el libro deja las flechas apagadas y un contador que dice «1 de 1» |
+| Home, móvil | Rejilla | Un pliego son dos páginas; en 360 px cada una queda en 180, ni para la foto |
+| `/alojamientos` | Rejilla | Es el listado, y comparar se hace en paralelo, no pasando hojas |
+
+La separación importa: **el cuaderno es escaparate, la rejilla es catálogo.** Por
+eso el enlace «Ver todos los alojamientos» está fijo debajo del libro y no en la
+hoja de cierre — quien quiere entrar directo no debería tener que hojearlo entero
+para encontrar la salida. La hoja de cierre se queda, pero solo con una
+despedida.
+
+**Umbral por revisar más adelante:** por encima de seis u ocho unidades el
+cuaderno empieza a estorbar —serían cuatro o más pliegos que paginar— y conviene
+volver a mirarlo.
+
+Respeta `prefers-reduced-motion`: con esa preferencia el giro se anula y la
+página cambia sin animación. La regla vive en `globals.css` y cubre toda la app,
+no solo el libro.
+
 ### 4. No hay dónde ver lo que el negocio ha generado
 
 **Dónde:** falta la sección. Hoy lo más parecido es el resumen de `/admin`.

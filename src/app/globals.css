@@ -56,3 +56,68 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/*
+  Luz sobre la hoja que gira, en el cuaderno de alojamientos.
+
+  El giro por sí solo se lee como un plano rotando, no como papel. Lo que falta
+  es cómo le da la luz: una hoja que se levanta va perdiendo luz según se pone
+  de canto, y su reverso aparece en sombra y se aclara al quedar de frente.
+
+  Son dos capas sobre las caras, con opacidad animada. La clave está en el punto
+  medio: a 90 grados la hoja está de canto, y es justo donde la cara de delante
+  debe estar más oscura y la de detrás aparecer igual de oscura. Por eso las dos
+  animaciones fijan su valor en el 50 % — así el relevo entre caras no da un
+  salto de brillo.
+
+  La duración se hereda del elemento, que la recibe de FLIP_MS. Un solo número
+  manda sobre el giro y sobre la luz.
+*/
+@keyframes hoja-frente {
+  0% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes hoja-dorso {
+  0%,
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Sombra que la hoja proyecta sobre el pliego mientras pasa por encima. */
+@keyframes hoja-sombra {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.3;
+  }
+}
+
+/*
+  Quien ha pedido menos movimiento no debería ver una hoja girando 180 grados
+  durante medio segundo. Se deja el cambio de página, se quita el giro.
+
+  Va aquí y no en el componente porque afecta a toda animación larga que se
+  añada después; las transiciones cortas de hover no marean a nadie.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
