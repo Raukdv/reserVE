@@ -124,9 +124,14 @@ try {
   // La tasa publicada entre 4 y 5 PM rige para el día hábil siguiente, así que
   // una tasa con fecha valor futura no debe usarse todavía.
   const { rows: [rateBefore] } = await client.query('select current_rate() as r')
+  // `on conflict` porque la fila de mañana puede existir ya: el BCV publica por
+  // la tarde para el día siguiente, así que cualquier corrida vespertina la
+  // encuentra ocupada. Con un `insert` a secas la prueba reventaba por clave
+  // duplicada en vez de comprobar lo que dice comprobar.
   await client.query(
     `insert into exchange_rates (rate_date, market, usd_ves, source)
-     values (business_today() + 1, 'oficial', 999.999999, 'prueba')`,
+     values (business_today() + 1, 'oficial', 999.999999, 'prueba')
+     on conflict (rate_date, market) do update set usd_ves = excluded.usd_ves`,
   )
   const { rows: [rateAfter] } = await client.query('select current_rate() as r')
   check(
@@ -162,6 +167,30 @@ try {
     'rechaza cotizar con tasa rancia',
     stale.s === true && staleQuote.q?.error === 'stale_rate',
     JSON.stringify(staleQuote.q),
+  )
+
+  /*
+    Las dos mitades tienen que estar de acuerdo en qué día es.
+
+    Postgres guarda su propia copia de la zona horaria dentro de
+    `business_today()` —una migración no puede leer una variable de entorno— y
+    la app la suya en `src/lib/timezone.ts`. Si se separan, el desacuerdo no
+    aparece como error: aparece como una tasa que entra en vigor antes de tiempo
+    o unas llegadas que se adelantan un día. Por eso se compara el resultado, no
+    la cadena de configuración.
+  */
+  const { rows: [tz] } = await client.query('select business_today()::text as hoy')
+  const appToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.BUSINESS_TIMEZONE || 'America/Caracas',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+
+  check(
+    'Postgres y la app coinciden en el día del negocio',
+    tz.hoy === appToday,
+    `base ${tz.hoy} · app ${appToday}`,
   )
 
   // El flujo completo: crear reserva, rechazar la solapada, reportar pago.

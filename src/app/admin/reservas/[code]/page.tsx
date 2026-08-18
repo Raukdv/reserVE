@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { BUSINESS_TZ } from '@/lib/timezone'
 import { publicEnv } from '@/lib/env'
 import { usd, ves, dateLabel } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
@@ -40,7 +41,7 @@ const when = (iso: string) =>
   new Intl.DateTimeFormat('es-VE', {
     dateStyle: 'medium',
     timeStyle: 'short',
-    timeZone: 'America/Caracas',
+    timeZone: BUSINESS_TZ,
   }).format(new Date(iso))
 
 /**

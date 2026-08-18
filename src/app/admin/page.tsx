@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getRateSummary } from '@/lib/rates'
 import { usd, dateLabel } from '@/lib/format'
 import { businessToday, daysBetween } from '@/lib/business-date'
+import { RefreshRate } from '@/components/refresh-rate'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Resumen' }
@@ -168,6 +169,27 @@ export default async function AdminHome() {
           }
         />
       </dl>
+
+      {/*
+        La que ya está publicada pero todavía no rige. El BCV publica por la
+        tarde para el día siguiente, así que a partir de media tarde hay dos
+        cifras vivas y el operador tiene que saber cuál está cobrando.
+      */}
+      {rates.next && (
+        <p className="mt-4 rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink/70">
+          Hoy se cobra a{' '}
+          <strong className="font-medium text-ink">
+            {rates.rate?.toLocaleString('es-VE')}
+          </strong>
+          . El BCV ya publicó{' '}
+          <strong className="font-medium text-ink">
+            {rates.next.rate.toLocaleString('es-VE')}
+          </strong>{' '}
+          con fecha valor {rates.next.rateDate}, que entra en vigor ese día.
+        </p>
+      )}
+
+      <RefreshRate />
 
       {rates.gap !== null && rates.gap > 0.05 && (
         <p className="mt-4 text-xs text-ink/70">

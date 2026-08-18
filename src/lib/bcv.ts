@@ -2,6 +2,7 @@ import 'server-only'
 
 import https from 'node:https'
 import { createAdminClient } from '@/lib/supabase/server'
+import { BUSINESS_TZ } from '@/lib/timezone'
 
 /**
  * Obtención y almacenamiento de las tasas USD/VES.
@@ -42,14 +43,17 @@ export type FetchResult =
       rateDate: string
       usdVes: number
       source: string
+      /** Falso cuando la tasa ya estaba guardada con ese mismo importe. */
       changed: boolean
       /** Brecha del paralelo sobre el oficial, en fracción. Null si no se obtuvo. */
       gap: number | null
+      /** Cierto si una de las dos fuentes no respondió y salvó la otra. */
+      partial?: boolean
     }
   | { ok: false; detail: string }
 
 const caracasDate = new Intl.DateTimeFormat('sv-SE', {
-  timeZone: 'America/Caracas',
+  timeZone: BUSINESS_TZ,
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
@@ -208,44 +212,94 @@ export async function fetchAndStoreRate({ force = false } = {}): Promise<FetchRe
     }
   }
 
-  const changed = !previous || previous.rate_date !== oficial.valueDate
+  /*
+    ¿Hay que escribir?
 
-  const { error } = await supabase.from('exchange_rates').upsert(
-    {
-      rate_date: oficial.valueDate,
-      market: 'oficial',
-      usd_ves: oficial.value,
-      source: oficial.source,
-      fetched_at: new Date().toISOString(),
-    },
-    { onConflict: 'rate_date,market' },
-  )
-  if (error) return fail(`no se pudo guardar la oficial: ${error.message}`)
+    Se compara contra la fila de esa misma fecha valor, no contra la última: si
+    ya está guardada con el mismo importe, volver a escribirla no aporta nada y
+    solo gasta. Importa porque además del cron diario hay un botón manual, y
+    pulsarlo tres veces seguidas no debería dejar tres escrituras idénticas.
+
+    Consecuencia asumida: `fetched_at` pasa a ser «cuándo se vio por primera
+    vez» y no «cuándo se confirmó por última vez». Lo segundo lo responde
+    `rate_fetch_log`, que sí registra cada intento.
+  */
+  const { data: sameDay } = await supabase
+    .from('exchange_rates')
+    .select('usd_ves')
+    .eq('market', 'oficial')
+    .eq('rate_date', oficial.valueDate)
+    .maybeSingle()
+
+  const changed = !sameDay || Number(sameDay.usd_ves) !== oficial.value
+
+  if (changed) {
+    const { error } = await supabase.from('exchange_rates').upsert(
+      {
+        rate_date: oficial.valueDate,
+        market: 'oficial',
+        usd_ves: oficial.value,
+        source: oficial.source,
+        fetched_at: new Date().toISOString(),
+      },
+      { onConflict: 'rate_date,market' },
+    )
+    if (error) return fail(`no se pudo guardar la oficial: ${error.message}`)
+  }
 
   // El paralelo es solo métrica: si falla no se aborta nada. Nunca se cobra con
   // él, así que un hueco en la serie no afecta a ninguna reserva.
   let gap: number | null = null
   if (api?.paralelo) {
-    await supabase.from('exchange_rates').upsert(
-      {
-        rate_date: api.paralelo.valueDate,
-        market: 'paralelo',
-        usd_ves: api.paralelo.value,
-        source: api.paralelo.source,
-        fetched_at: new Date().toISOString(),
-      },
-      { onConflict: 'rate_date,market' },
-    )
+    const { data: samePar } = await supabase
+      .from('exchange_rates')
+      .select('usd_ves')
+      .eq('market', 'paralelo')
+      .eq('rate_date', api.paralelo.valueDate)
+      .maybeSingle()
+
+    // El paralelo se mueve a diario, así que casi siempre habrá cambio. La
+    // comprobación está por la misma razón: no repetir una escritura idéntica.
+    if (!samePar || Number(samePar.usd_ves) !== api.paralelo.value) {
+      await supabase.from('exchange_rates').upsert(
+        {
+          rate_date: api.paralelo.valueDate,
+          market: 'paralelo',
+          usd_ves: api.paralelo.value,
+          source: api.paralelo.source,
+          fetched_at: new Date().toISOString(),
+        },
+        { onConflict: 'rate_date,market' },
+      )
+    }
     gap = (api.paralelo.value - oficial.value) / oficial.value
   }
 
+  /*
+    El registro distingue tres cosas que antes salían todas como `ok`: que las
+    dos fuentes respondieran, que una fallara y salvara la otra, y que la tasa
+    ya estuviera guardada. Sin eso, un `ok = true` tapaba que el BCV llevaba
+    días sin contestar.
+  */
+  const partial = !api || !bcv
   await supabase.from('rate_fetch_log').insert({
     ok: true,
     rate_date: oficial.valueDate,
     usd_ves: oficial.value,
     source: oficial.source,
-    detail: `${notes.join(' | ')}${gap === null ? '' : ` | brecha=${(gap * 100).toFixed(2)}%`}`,
+    detail:
+      (partial ? '[una fuente falló] ' : '') +
+      (changed ? '' : '[sin cambio, no se escribió] ') +
+      `${notes.join(' | ')}${gap === null ? '' : ` | brecha=${(gap * 100).toFixed(2)}%`}`,
   })
 
-  return { ok: true, rateDate: oficial.valueDate, usdVes: oficial.value, source: oficial.source, changed, gap }
+  return {
+    ok: true,
+    rateDate: oficial.valueDate,
+    usdVes: oficial.value,
+    source: oficial.source,
+    changed,
+    gap,
+    partial,
+  }
 }

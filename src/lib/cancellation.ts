@@ -25,6 +25,8 @@
  * reserva en lugar de una regla que el huésped tenga que traducir.
  */
 
+import { BUSINESS_TZ, BUSINESS_UTC_OFFSET } from '@/lib/timezone'
+
 /**
  * `forfeit_nights` se nombra desde el huésped: son las noches que **no**
  * recupera. Visto desde el negocio son las que retiene cobradas. Los dos
@@ -126,8 +128,6 @@ export type CancellationStep = {
   daysBefore: number
 }
 
-const CARACAS = 'America/Caracas'
-
 /** Título de la página pública cuando el operador no pone uno propio. */
 export const POLICY_TITLE = 'Política de cancelación'
 
@@ -169,7 +169,7 @@ export function parseTiers(raw: unknown): CancellationTier[] {
  * desfase es constante y se puede componer directamente.
  */
 export function checkInMoment(checkIn: string, checkInTime: string): Date {
-  return new Date(`${checkIn}T${checkInTime.slice(0, 5)}:00-04:00`)
+  return new Date(`${checkIn}T${checkInTime.slice(0, 5)}:00${BUSINESS_UTC_OFFSET}`)
 }
 
 export function cancellationSteps(
@@ -198,7 +198,7 @@ const stamp = new Intl.DateTimeFormat('es-VE', {
   hour: 'numeric',
   minute: '2-digit',
   hour12: true,
-  timeZone: CARACAS,
+  timeZone: BUSINESS_TZ,
 })
 
 /** «31 de agosto, 1:00 p. m.» */

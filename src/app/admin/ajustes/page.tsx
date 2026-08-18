@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { BUSINESS_TZ } from '@/lib/timezone'
 import { SettingsForm } from '@/components/settings-form'
 import { PaymentAccounts } from '@/components/payment-accounts'
 import { ResendLinkForm } from '@/components/resend-link-form'
@@ -24,7 +25,7 @@ const EMAIL_LABEL: Record<EmailKind, string> = {
 const stamp = new Intl.DateTimeFormat('es-VE', {
   dateStyle: 'short',
   timeStyle: 'short',
-  timeZone: 'America/Caracas',
+  timeZone: BUSINESS_TZ,
 })
 
 export default async function SettingsPage() {

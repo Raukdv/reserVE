@@ -111,6 +111,34 @@ que recalcularlo — la reserva sigue viva.
 
 ---
 
+## Dos cifras vivas a la vez
+
+Desde media tarde suele haber dos: la que rige hoy y la que el BCV ya publicó
+para el siguiente día hábil. El panel las enseña por separado.
+
+> Hoy se cobra a 773,313. El BCV ya publicó 775,336 con fecha valor 2026-08-19,
+> que entra en vigor ese día.
+
+No es adorno. El operador cotiza por teléfono mirando la pantalla, y si solo ve
+un número no sabe si es el que le van a cobrar en el banco hoy o el de mañana.
+
+**El botón «Actualizar tasa»** del resumen pide una consulta sin esperar al cron
+diario. Dos cosas que hace y conviene saber:
+
+- **Informa de la tasa que rige hoy**, no de la que acaba de guardar. Una
+  consulta a las seis de la tarde puede traer fecha valor de mañana; decir «tasa
+  actualizada a 775,33» mientras el panel muestra 773,31 pondría dos cifras
+  distintas en la misma pantalla.
+- **No escribe si el importe ya está guardado** para esa fecha valor. Pulsarlo
+  tres veces deja tres líneas en el registro y cero escrituras.
+
+**No salta las comprobaciones.** «Forzar» es forzar la consulta, no la
+validación: los guardias de divergencia entre fuentes y de salto diario siguen
+aplicando. Saltárselos desde un botón sería poner un interruptor a la única
+defensa sobre el número con el que se factura.
+
+---
+
 ## Cómo se alimenta
 
 `pnpm rate:fetch` descarga la tasa y la registra. Corre por cron diario, que es
@@ -157,6 +185,11 @@ ley ni por accidente.
 ---
 
 ## Lo que no cubre
+
+**El BCV alterna respuestas entre llamadas.** Observado el 2026-08-18: cuatro
+consultas seguidas devolvieron dos fechas valor distintas, alternando. Ambas
+plausibles, pero cuál se guarda depende de a qué nodo caiga la petición. En
+observación — ver `PENDIENTES.md`.
 
 **No hay histórico de qué tasa vio el huésped al cotizar** antes de reservar.
 Solo se guarda la de la reserva creada. Para una discusión sobre un precio

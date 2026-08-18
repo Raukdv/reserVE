@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { BUSINESS_TZ } from '@/lib/timezone'
+
 // Variables públicas. Next las inlinea en el bundle del cliente, así que hay
 // que referenciarlas por su nombre completo y literal — no con índices
 // dinámicos, o el reemplazo en build no ocurre.
@@ -25,7 +27,7 @@ export const publicEnv = publicSchema.parse({
 
 const serverSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1),
-  BUSINESS_TIMEZONE: z.string().default('America/Caracas'),
+  BUSINESS_TIMEZONE: z.string().default(BUSINESS_TZ),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
 

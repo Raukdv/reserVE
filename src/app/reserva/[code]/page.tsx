@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { BUSINESS_TZ } from '@/lib/timezone'
 import { usd, ves, dateLabel } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
@@ -231,7 +232,7 @@ export default async function BookingPage({
               {new Intl.DateTimeFormat('es-VE', {
                 dateStyle: 'long',
                 timeStyle: 'short',
-                timeZone: 'America/Caracas',
+                timeZone: BUSINESS_TZ,
               }).format(new Date(booking.expires_at))}
               .
             </p>

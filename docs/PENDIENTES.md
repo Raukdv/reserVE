@@ -78,23 +78,40 @@ regla 3.3.
 
 ---
 
-## `BUSINESS_TIMEZONE` — conectada a medias
+## ~~`BUSINESS_TIMEZONE` — conectada a medias~~ — resuelto en TypeScript
 
-Estaba declarada en `.env.example` y en `serverEnv()` sin que ningún código la
-leyera. Ya la lee `businessToday()` en `src/lib/business-date.ts`, que es la
-contraparte en Next de `business_today()`: se añadió porque el panel calculaba
-«hoy» en UTC y, con Venezuela cuatro horas por detrás, entre las 8 de la noche y
-la medianoche enseñaba las llegadas de mañana.
+Estaba declarada sin que ningún código la leyera, y la zona aparecía literal en
+**nueve sitios** entre código y migraciones.
 
-Sigue apareciendo literal como `America/Caracas` en el resto del código —los
-formateadores de fecha, `cancellation.ts`, `bcv.ts`— y en las migraciones, donde
-no puede leer una variable de entorno.
+Ahora en TypeScript hay **un solo literal**, en `src/lib/timezone.ts`. De ahí
+salen los cuatro formateadores de fecha, la política de cancelación y el valor
+por defecto de `BUSINESS_TIMEZONE` — así que si nadie define la variable, las dos
+mitades coinciden por construcción.
 
-Queda por decidir si merece la pena terminar de conectarla. Operar en otra zona
-exigiría además que `business_today()` y los plazos de cancelación la leyeran de
-la base, no del entorno, porque hoy Postgres tiene su propia copia del literal.
-Mientras el negocio sea uno solo y esté en Venezuela, el valor coincide y no hay
-consecuencia práctica.
+Vive ahí y no en `env.ts` porque lo necesitan también componentes de cliente
+—`settings-form.tsx` importa la política de cancelación— y `serverEnv()` lanza si
+corre en el navegador.
+
+**Postgres conserva su copia** dentro de `business_today()`, y no puede ser de
+otra forma: una migración no lee variables de entorno. Lo que sí hay ahora es una
+comprobación en `pnpm db:check` de que las dos calculan el mismo día:
+
+```
+ok   Postgres y la app coinciden en el día del negocio — base 2026-08-18 · app 2026-08-18
+```
+
+Se compara el **resultado**, no la cadena de configuración: un desacuerdo de zona
+no aparece como error sino como una tasa que entra en vigor antes de tiempo o
+unas llegadas adelantadas un día.
+
+Lo que queda abierto, y solo importa si el negocio dejara de estar en Venezuela:
+
+- `properties.timezone` existe con valor por defecto y **nadie lo lee**. O se
+  conecta o se quita — hoy promete algo que no cumple.
+- `BUSINESS_UTC_OFFSET` da por hecho que no hay horario de verano, cosa cierta en
+  Venezuela pero no en general.
+- Las tres funciones de cancelación en las migraciones `0015`, `0016` y `0018`
+  llevan el literal dentro.
 
 ---
 
@@ -389,6 +406,54 @@ anticipo se sigue calculando sobre el total con impuestos —ver el artículo 13
 la Ley del IVA en `cobro-y-verificacion.md`— y las devoluciones siguen
 devolviendo la parte proporcional del impuesto. Esto es solo **cómo se cuenta**,
 no cómo se cobra.
+
+---
+
+## Vigilar — el BCV devuelve datos distintos entre llamadas
+
+**Observado el 2026-08-18.** En cuatro consultas seguidas, con segundos entre
+ellas, la fuente autoritativa alternó entre dos respuestas:
+
+```
+bcv=775.3356@2026-08-19
+bcv=773.3125@2026-08-18   ←
+bcv=773.3125@2026-08-18
+bcv=775.3356@2026-08-19   ←
+```
+
+Las dos son plausibles —una rige hoy y la otra mañana— y la app las guardó
+ambas, así que nada se rompió. Pero significa que **cuál se guarda depende de a
+qué nodo caiga la petición**, y eso no es determinista.
+
+Probablemente una caché o un balanceador desincronizado en su lado. Hace falta
+observarlo varios días antes de decidir nada: puede haber sido puntual de esa
+tarde, justo cuando publican.
+
+Si resulta constante, las salidas son:
+
+- **Consultar dos veces y quedarse con la fecha valor mayor**, que es la que
+  acabará rigiendo de todas formas. Cuesta una petición extra por corrida.
+- **Preferir `dolarapi` cuando discrepen en fecha**, no en importe. Hoy manda el
+  BCV siempre que responda, por ser la fuente autoritativa.
+
+No tocar sin datos. El guardia de divergencia y el de salto diario ya impiden que
+una lectura absurda entre.
+
+---
+
+## Comprobar el registro contra lo que se fuerza
+
+Cada consulta manual deja una línea en `rate_fetch_log`, pero **nadie las
+contrasta con lo que acabó en `exchange_rates`**. Con el botón de actualizar eso
+pasa a importar: si alguien lo pulsa varias veces, el registro dirá cuatro
+intentos y la tabla puede tener una fila, dos o ninguna nueva.
+
+Falta una comprobación que responda: de lo que dice el registro que se leyó,
+¿qué se guardó de verdad y qué se descartó por no haber cambiado?
+
+Encaja en `pnpm db:check`, junto a las tres pruebas de tasa que ya hay. Contrastar
+la última línea del registro con la fila de esa fecha valor y avisar si el
+importe no coincide — sería la señal de que algo escribió por otro camino.
 
 ---
 
