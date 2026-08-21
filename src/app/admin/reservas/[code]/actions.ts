@@ -418,3 +418,58 @@ export async function extendStay(
       `Se añadieron ${usd(Number(result.added_usd ?? 0))} al total.`,
   }
 }
+
+/**
+ * Marca que el huésped no se presentó.
+ *
+ * Distinto de cancelar: no pasa por la política de cancelación y **no genera
+ * deuda**. Consultado con operadores, al que no aparece y no avisa no se le
+ * devuelve nada. Cancelar en su lugar devolvería lo que marque el tramo
+ * vigente, que con una política moderada puede ser todo.
+ *
+ * Lo cobrado se queda donde está. Si después se acuerda devolver algo, para eso
+ * está `recordRefund()`.
+ */
+export async function markNoShow(
+  _prev: BookingActionState,
+  formData: FormData,
+): Promise<BookingActionState> {
+  await requireStaff()
+
+  const code = String(formData.get('code') ?? '').trim()
+  const reason = String(formData.get('reason') ?? '').trim()
+  if (code.length < 4) return { error: 'Reserva no válida.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('staff_mark_no_show', {
+    p_code: code,
+    p_reason: reason || null,
+  })
+
+  if (error) return { error: 'No se pudo marcar.' }
+
+  const result = data as { ok: boolean; error?: string; retained_usd?: number }
+
+  if (!result.ok) {
+    return {
+      error:
+        result.error === 'not_confirmed'
+          ? 'Solo se marca no-show una reserva confirmada que nunca entró.'
+          : (ERRORS[result.error ?? ''] ?? 'No se pudo marcar.'),
+    }
+  }
+
+  revalidatePath(`/admin/reservas/${code}`)
+  revalidatePath('/admin')
+  revalidatePath('/admin/calendario')
+  revalidatePath('/alojamientos', 'layout')
+
+  const retained = Number(result.retained_usd ?? 0)
+
+  return {
+    ok:
+      retained > 0
+        ? `Marcada como no-show. Se retienen ${usd(retained)} y las fechas quedan libres.`
+        : 'Marcada como no-show. Las fechas quedan libres.',
+  }
+}

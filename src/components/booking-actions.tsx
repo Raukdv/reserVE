@@ -7,6 +7,7 @@ import {
   cancelBooking,
   recordRefund,
   extendStay,
+  markNoShow,
   checkIn,
   checkOut,
   type BookingActionState,
@@ -92,6 +93,13 @@ export function BookingActions({
 
         {open && <RecordPayment code={code} suggested={outstandingUsd} rate={rate} />}
         {status === 'pending' && <ConfirmWithoutPayment code={code} />}
+        {/*
+          El no-show solo tiene sentido en una confirmada que nunca entró. Va
+          junto a cancelar porque son las dos salidas de la misma situación, y
+          separadas porque el dinero acaba en sitios opuestos.
+        */}
+        {status === 'confirmed' && <NoShow code={code} />}
+
         {open && <Cancel code={code} refund={refund} />}
 
         {owes && (
@@ -378,6 +386,60 @@ function StayStep({ code, step }: { code: string; step: 'in' | 'out' }) {
             </label>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * El huésped no apareció.
+ *
+ * Separado de cancelar porque el dinero acaba en sitios opuestos: cancelar pasa
+ * por la política y puede devolverlo todo; esto no devuelve nada. Consultado con
+ * operadores, al que no avisa no se le reembolsa.
+ *
+ * Si después se acuerda devolver algo, se anota como devolución — el camino
+ * para lo que se decide caso a caso.
+ */
+function NoShow({ code }: { code: string }) {
+  const [state, action, pending] = useActionState<BookingActionState, FormData>(
+    markNoShow,
+    {},
+  )
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="border-t border-ink/10 pt-5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-sm text-ink/70 underline hover:text-ink"
+      >
+        {open ? 'Cerrar' : 'No se presentó'}
+      </button>
+      <p className="mt-2 text-xs text-ink/70">
+        Libera las fechas y <strong className="font-medium">retiene lo cobrado</strong>.
+        Si acordaste devolverle algo, cancela en vez de esto.
+      </p>
+
+      {open && (
+        <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
+          <input type="hidden" name="code" value={code} />
+          <input
+            name="reason"
+            placeholder="Motivo (opcional)"
+            className="min-w-56 flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm"
+          />
+          <button
+            disabled={pending}
+            className="rounded-lg border border-ink/15 px-5 py-2 text-sm transition hover:border-ink/40 disabled:opacity-50"
+          >
+            {pending ? 'Marcando…' : 'Marcar no-show'}
+          </button>
+
+          {state.ok && <span className="text-sm text-moss">{state.ok}</span>}
+          {state.error && <span className="text-sm text-red-700">{state.error}</span>}
+        </form>
       )}
     </div>
   )

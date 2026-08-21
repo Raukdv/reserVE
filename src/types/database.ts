@@ -17,7 +17,11 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type UserRole = 'admin' | 'staff' | 'guest'
 export type HoldKind = 'booking' | 'block'
 export type BookingStatus =
-  | 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'expired'
+  | 'pending' | 'confirmed' | 'checked_in' | 'completed'
+  | 'cancelled'
+  /** No se presentó y no avisó. Retiene lo cobrado; ver 0032. */
+  | 'no_show'
+  | 'expired'
 export type PaymentKind = 'deposit' | 'balance' | 'refund'
 export type PaymentStatus = 'pending' | 'verifying' | 'approved' | 'rejected' | 'refunded'
 export type PaymentMethod =
@@ -854,6 +858,10 @@ export interface Database {
       }
       staff_confirm_booking: { Args: { p_code: string; p_reason: string }; Returns: Json }
       staff_delete_unit: { Args: { p_unit_id: string }; Returns: Json }
+      staff_mark_no_show: {
+        Args: { p_code: string; p_reason?: string | null }
+        Returns: Json
+      }
       staff_extend_stay: { Args: { p_code: string; p_check_out: string }; Returns: Json }
       staff_set_cover: { Args: { p_media_id: string }; Returns: Json }
       staff_move_site_image: { Args: { p_id: string; p_section: string }; Returns: Json }

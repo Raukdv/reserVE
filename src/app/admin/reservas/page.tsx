@@ -22,6 +22,7 @@ const STATUS: Record<BookingStatus, { label: string; tone: string }> = {
   checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
   completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
   cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
+  no_show: { label: 'No se presentó', tone: 'bg-ink/8 text-ink/70' },
   expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
 }
 

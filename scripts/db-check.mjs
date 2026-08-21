@@ -151,10 +151,24 @@ try {
     `oficial ${ignoresParallel.r} con paralelo en 5000`,
   )
 
-  // Si el alimentador lleva días caído, no se cotiza en bolívares en vez de
-  // cobrar con una tasa vieja.
+  /*
+    Si el alimentador lleva días caído, no se cotiza en bolívares en vez de
+    cobrar con una tasa vieja.
+
+    Las tasas se apartan y se repone una vieja, en lugar de correrles la fecha
+    diez días. Correrlas funcionaba con pocas filas y empezó a chocar en cuanto
+    el histórico pasó de diez días: `08-20 menos 10` cae sobre el `08-10` que
+    todavía no se había movido, y el índice único lo rechaza. Apartarlas no
+    depende de cuántas haya.
+  */
   await client.query(
-    `update exchange_rates set rate_date = rate_date - 10 where market = 'oficial'`,
+    `create temp table _rates_backup on commit drop as
+     select * from exchange_rates where market = 'oficial'`,
+  )
+  await client.query(`delete from exchange_rates where market = 'oficial'`)
+  await client.query(
+    `insert into exchange_rates (rate_date, market, usd_ves, source)
+     values (business_today() - 30, 'oficial', 100, 'prueba')`,
   )
   const { rows: [stale] } = await client.query('select rate_is_stale() as s')
   const { rows: [staleQuote] } = await client.query(
@@ -191,9 +205,8 @@ try {
   )
 
   // El flujo completo: crear reserva, rechazar la solapada, reportar pago.
-  await client.query(
-    `update exchange_rates set rate_date = rate_date + 10 where market = 'oficial'`,
-  )
+  await client.query(`delete from exchange_rates where market = 'oficial'`)
+  await client.query(`insert into exchange_rates select * from _rates_backup`)
   const { rows: [created] } = await client.query(
     `select create_booking($1,'2031-02-10','2031-02-14',2,'Prueba','prueba@example.com',null,null,null) as r`,
     [unit.id],

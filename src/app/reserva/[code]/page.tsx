@@ -77,6 +77,13 @@ const STATUS: Record<BookingStatus, { label: string; tone: string; detail: strin
     tone: 'bg-ink/10 text-ink/70',
     detail: 'Esta reserva fue cancelada.',
   },
+  no_show: {
+    label: 'No se registró la llegada',
+    tone: 'bg-ink/10 text-ink/70',
+    // Dicho sin acusar: el huésped puede estar leyendo esto porque hubo un
+    // malentendido, y la app no sabe de quién fue.
+    detail: 'No consta que hayas llegado y las fechas se liberaron. Escríbenos si hubo un problema.',
+  },
   expired: {
     label: 'Expirada',
     tone: 'bg-ink/10 text-ink/70',
