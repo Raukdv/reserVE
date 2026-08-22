@@ -307,48 +307,31 @@ Ver `docs/funciones/calendario-y-bloqueos.md`.
 
 ---
 
-## Bloquear fechas desde el móvil
+## ~~Bloquear fechas desde el movil~~ - hecho
 
-El arrastre sobre la rejilla es **solo de ratón**: se apoya en `mousedown`,
-`mouseenter` y `mouseup`. En una pantalla táctil no hay `mouseenter`, y arrastrar
-el dedo sobre una zona que además hace scroll horizontal pelea con el gesto del
-navegador. Hoy en móvil solo queda el formulario de fechas de siempre.
+El arrastre se apoyaba en `mousedown` y `mouseenter`, que en tactil no existen.
+Resuelto con **dos toques** dentro de un modo explicito, en `CalendarGrid`:
 
-### Cómo se resuelve: dos toques, no arrastre
+1. Toque en una casilla libre marca el inicio, con un anillo que lo distingue.
+2. Toque en otra cierra el rango y abre la confirmacion de siempre.
+3. Un tercer toque mueve el extremo mas cercano en vez de reiniciar.
 
-Un botón que entra en **modo selección**, y dentro de ese modo:
+El boton se muestra siempre, no solo bajo `(pointer: coarse)`. Dentro del modo
+las casillas son `<button>` de verdad, asi que **tambien cubre el teclado**, que
+la especificacion daba por perdido.
 
-1. Toque en una casilla libre → marca el inicio.
-2. Toque en otra → marca el fin y abre la confirmación de siempre.
+### Dos fallos que salieron al hacerlo
 
-Un tercer toque antes de confirmar mueve el extremo en lugar de empezar de cero:
-con el dedo se falla la casilla más de lo que se cree, y obligar a reiniciar la
-selección por un día de diferencia es lo que hace abandonar.
+**La seleccion cruzaba estadias.** Las casillas ocupadas se ignoraban al pasar
+por encima, pero la de mas alla si extendia el rango, y el bloqueo salia con una
+reserva dentro. La base lo rechazaba por el `EXCLUDE`, asi que nada se rompia,
+pero el operador recibia un error en vez de un tope visible. Ahora `reach()`
+frena en la primera ocupada, y vale para el arrastre y para los toques.
 
-### Por qué así y no imitando el arrastre
-
-Reproducir el arrastre con `touchmove` obliga a `preventDefault` sobre el
-contenedor, y eso mata el scroll horizontal — que en una rejilla de 45 días es
-justo lo que hace falta para llegar a la fecha. Dos toques discretos conviven con
-el scroll sin pelearse.
-
-Además el modo explícito evita el problema contrario: en táctil no hay diferencia
-entre «toco para seleccionar» y «toco para abrir la reserva», y sin un modo que
-lo separe cualquier toque sería ambiguo.
-
-### Al implementarlo
-
-- El estado de selección ya existe en `CalendarGrid` (`drag` con `a` y `b`); lo
-  que cambia es cómo se alimenta, no lo que produce. La confirmación y la acción
-  de bloqueo se reutilizan tal cual.
-- El botón de modo solo tiene sentido donde no hay puntero fino. Se puede mostrar
-  siempre —no estorba en escritorio y da una alternativa por si el arrastre se
-  atasca— o condicionarlo a `(pointer: coarse)`.
-- Marcar visualmente el extremo ya elegido mientras se espera el segundo toque:
-  sin eso el modo selección no se distingue del normal.
-- Salir del modo con el mismo botón, y también al confirmar o cancelar.
-
-Esto tampoco cubre el teclado, que sigue sin equivalente.
+**El ultimo dia daba un rango vacio.** La salida se leia de la columna siguiente
+recortada a la ventana, asi que seleccionar el dia 45 daba `from == to`. Con el
+arrastre costaba llegar; tabulando hasta el final, no. Ahora se calcula sumando
+un dia, que puede caer fuera de los 45 pintados.
 
 ---
 

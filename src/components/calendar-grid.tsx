@@ -29,6 +29,19 @@ export type Day = { key: string; letter: string; num: string; weekend: boolean }
 export type GridUnit = { id: string; name: string }
 
 /**
+ * El día siguiente, en ISO.
+ *
+ * La salida de un bloqueo puede caer fuera de los 45 días pintados, así que no
+ * sirve leer la columna de al lado. En UTC a propósito: las claves de la rejilla
+ * son fechas sin hora y `setUTCDate` no las mueve al cruzar un cambio horario.
+ */
+function nextDay(iso: string) {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
  * Rejilla del calendario: unidades × días, con las estadías como barras.
  *
  * ## Por qué las barras van a media celda
@@ -45,6 +58,27 @@ export type GridUnit = { id: string; name: string }
  * a alguien ese día?».
  *
  * El ancho no cambia: sigue siendo una columna por noche. Solo se corre.
+ *
+ * ## Por qué hay dos formas de seleccionar
+ *
+ * El arrastre se apoya en `mousedown` y `mouseenter`, que en una pantalla táctil
+ * no existen. Imitarlo con `touchmove` obligaría a `preventDefault` sobre el
+ * contenedor, y eso mata el scroll horizontal — que en una rejilla de 45 días es
+ * justo lo que hace falta para llegar a la fecha.
+ *
+ * Así que en táctil se selecciona con **dos toques**: uno marca el inicio y otro
+ * el fin. Van dentro de un modo explícito porque con el dedo no hay diferencia
+ * entre «toco para seleccionar» y «toco para abrir la reserva»; sin el modo,
+ * cualquier toque sería ambiguo.
+ *
+ * El botón se muestra siempre, no solo bajo `(pointer: coarse)`: no estorba en
+ * escritorio, da salida si el arrastre se atasca, y como dentro del modo las
+ * casillas pasan a ser `<button>` de verdad, es además la única forma de
+ * bloquear con el teclado.
+ *
+ * Un tercer toque mueve el extremo más cercano en vez de empezar de cero. Con el
+ * dedo se falla la casilla más de lo que uno cree, y obligar a reiniciar la
+ * selección por un día de diferencia es lo que hace abandonar.
  *
  * ## Por qué las barras están fuera del flujo
  *
@@ -64,10 +98,16 @@ export function CalendarGrid({
   bars: Bar[]
   todayIso: string
 }) {
+  /** Arrastre en curso con el ratón. */
   const [drag, setDrag] = useState<{ unitId: string; a: number; b: number } | null>(null)
-  const [pick, setPick] = useState<{ unitId: string; from: string; to: string } | null>(null)
+  /** Selección ya cerrada, esperando confirmación. Índices, no fechas. */
+  const [range, setRange] = useState<{ unitId: string; a: number; b: number } | null>(null)
+  /** Modo de selección por toques. */
+  const [tapMode, setTapMode] = useState(false)
+  /** Primer toque, a la espera del segundo. */
+  const [anchor, setAnchor] = useState<{ unitId: string; i: number } | null>(null)
 
-  // Qué columnas de cada unidad están tomadas: arrastrar sobre ellas no debe
+  // Qué columnas de cada unidad están tomadas: seleccionar sobre ellas no debe
   // proponer un bloqueo que la base va a rechazar de todas formas.
   const taken = new Map<string, Set<number>>()
   for (const bar of bars) {
@@ -78,27 +118,91 @@ export function CalendarGrid({
 
   const free = (unitId: string, i: number) => !taken.get(unitId)?.has(i)
 
-  function finishDrag() {
-    if (!drag) return
-    const from = Math.min(drag.a, drag.b)
-    const to = Math.max(drag.a, drag.b)
+  /**
+   * Hasta dónde llega la selección desde `from` hacia `to` sin saltarse una
+   * estadía.
+   *
+   * Sin esto se podía seleccionar de un lado a otro de una barra: las casillas
+   * ocupadas se ignoraban, pero la de más allá sí extendía el rango y el bloqueo
+   * salía con una estadía dentro. La base lo rechazaba por el `EXCLUDE`, así que
+   * nada se rompía, pero el operador recibía un error en vez de un tope visible.
+   */
+  function reach(unitId: string, from: number, to: number) {
+    const step = to >= from ? 1 : -1
+    let last = from
+    for (let i = from + step; step > 0 ? i <= to : i >= to; i += step) {
+      if (!free(unitId, i)) break
+      last = i
+    }
+    return last
+  }
 
-    // El rango es semiabierto, igual que en la base: bloquear la columna del
-    // día 3 significa `[3, 4)`, así que la salida es el día siguiente al último
-    // arrastrado.
-    setPick({
-      unitId: drag.unitId,
-      from: days[from].key,
-      to: days[Math.min(to + 1, days.length - 1)].key,
-    })
+  function clearSelection() {
+    setRange(null)
+    setAnchor(null)
+  }
+
+  function toggleTapMode() {
+    setTapMode((on) => !on)
+    clearSelection()
     setDrag(null)
   }
 
-  const inDrag = (unitId: string, i: number) =>
-    drag !== null &&
-    drag.unitId === unitId &&
-    i >= Math.min(drag.a, drag.b) &&
-    i <= Math.max(drag.a, drag.b)
+  function onTap(unitId: string, i: number) {
+    // Tercer toque sobre una selección ya cerrada: mueve el extremo más cercano.
+    if (range && range.unitId === unitId) {
+      const nearA = Math.abs(i - range.a) <= Math.abs(i - range.b)
+      setRange(
+        nearA
+          ? { ...range, a: reach(unitId, range.b, i) }
+          : { ...range, b: reach(unitId, range.a, i) },
+      )
+      return
+    }
+
+    // Segundo toque en la misma unidad: cierra el rango.
+    if (anchor && anchor.unitId === unitId) {
+      setRange({ unitId, a: anchor.i, b: reach(unitId, anchor.i, i) })
+      setAnchor(null)
+      return
+    }
+
+    // El primero, o un toque en otra unidad: se empieza allí.
+    setAnchor({ unitId, i })
+    setRange(null)
+  }
+
+  function finishDrag() {
+    if (!drag) return
+    setRange(drag)
+    setDrag(null)
+  }
+
+  const span = drag ?? range
+
+  const inSpan = (unitId: string, i: number) =>
+    span !== null &&
+    span.unitId === unitId &&
+    i >= Math.min(span.a, span.b) &&
+    i <= Math.max(span.a, span.b)
+
+  const isAnchor = (unitId: string, i: number) =>
+    anchor?.unitId === unitId && anchor.i === i
+
+  // El rango es semiabierto, igual que en la base: bloquear la columna del día 3
+  // significa `[3, 4)`, así que la salida es el día siguiente al último elegido.
+  //
+  // Se calcula sumando un día, no leyendo la columna siguiente. Antes se recortaba
+  // a la última pintada, y seleccionar el día 45 —el borde de la ventana— daba
+  // `from == to`: un rango vacío que no choca con nada y entraba como bloqueo
+  // inútil. Con el arrastre costaba llegar ahí; tabulando hasta el final, no.
+  const pick = range
+    ? {
+        unitId: range.unitId,
+        from: days[Math.min(range.a, range.b)].key,
+        to: nextDay(days[Math.max(range.a, range.b)].key),
+      }
+    : null
 
   return (
     <>
@@ -106,7 +210,10 @@ export function CalendarGrid({
         <BlockConfirm
           unitName={units.find((u) => u.id === pick.unitId)?.name ?? ''}
           pick={pick}
-          onClose={() => setPick(null)}
+          onClose={() => {
+            clearSelection()
+            setTapMode(false)
+          }}
         />
       )}
 
@@ -142,22 +249,49 @@ export function CalendarGrid({
               <div className="relative flex" style={{ height: `${ROW_HEIGHT}px` }}>
                 {days.map((d, i) => {
                   const selectable = free(unit.id, i)
+
+                  const fondo = inSpan(unit.id, i)
+                    ? 'bg-clay/40'
+                    : d.key === todayIso
+                      ? 'bg-clay/10'
+                      : d.weekend
+                        ? 'bg-ink/3'
+                        : ''
+
+                  // El extremo a la espera del segundo toque tiene que verse
+                  // distinto del rango cerrado: si no, el modo selección no se
+                  // distingue del normal y no hay pista de que falte un toque.
+                  const marca = isAnchor(unit.id, i)
+                    ? 'bg-clay/40 ring-2 ring-inset ring-ink/50'
+                    : fondo
+
+                  const clase = `w-7 shrink-0 border-r border-ink/5 ${marca}`
+
+                  if (tapMode) {
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        disabled={!selectable}
+                        onClick={() => onTap(unit.id, i)}
+                        aria-pressed={inSpan(unit.id, i) || isAnchor(unit.id, i)}
+                        aria-label={`${unit.name}, ${d.key}${selectable ? '' : ' (ocupado)'}`}
+                        className={`${clase} ${
+                          selectable ? 'cursor-pointer' : 'cursor-not-allowed'
+                        } focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink`}
+                      />
+                    )
+                  }
+
                   return (
                     <div
                       key={d.key}
                       onMouseDown={() => selectable && setDrag({ unitId: unit.id, a: i, b: i })}
                       onMouseEnter={() =>
-                        drag?.unitId === unit.id && selectable && setDrag({ ...drag, b: i })
+                        drag?.unitId === unit.id &&
+                        setDrag({ ...drag, b: reach(unit.id, drag.a, i) })
                       }
-                      className={`w-7 shrink-0 border-r border-ink/5 ${
-                        inDrag(unit.id, i)
-                          ? 'bg-clay/40'
-                          : d.key === todayIso
-                            ? 'bg-clay/10'
-                            : d.weekend
-                              ? 'bg-ink/3'
-                              : ''
-                      } ${selectable ? 'cursor-crosshair' : ''}`}
+                      className={`${clase} ${selectable ? 'cursor-crosshair' : ''}`}
                     />
                   )
                 })}
@@ -169,9 +303,14 @@ export function CalendarGrid({
                       key={k}
                       href={bar.href}
                       title={bar.title}
-                      className={`absolute top-1.5 flex items-center overflow-hidden px-1.5 text-[10px] font-medium leading-none ${bar.tone} ${
-                        bar.openStart ? 'rounded-l-md' : ''
-                      } ${bar.openEnd ? 'rounded-r-md' : ''}`}
+                      // Dentro del modo selección las barras no deben interceptar
+                      // el toque ni el tabulador: manda la casilla de debajo.
+                      tabIndex={tapMode ? -1 : undefined}
+                      className={`absolute top-1.5 flex items-center overflow-hidden px-1.5 text-[10px] font-medium leading-none ${
+                        bar.tone
+                      } ${bar.openStart ? 'rounded-l-md' : ''} ${
+                        bar.openEnd ? 'rounded-r-md' : ''
+                      } ${tapMode ? 'pointer-events-none' : ''}`}
                       style={{
                         // Media columna a la derecha: la entrada es a mediodía.
                         left: `${bar.offset * DAY_WIDTH + DAY_WIDTH / 2}px`,
@@ -188,9 +327,28 @@ export function CalendarGrid({
         </div>
       </div>
 
-      <p className="mt-2 text-xs text-ink/60">
-        Arrastra sobre los días libres de una unidad para bloquearlos.
-      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button
+          type="button"
+          onClick={toggleTapMode}
+          aria-pressed={tapMode}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+            tapMode
+              ? 'border-ink bg-ink text-sand'
+              : 'border-ink/20 text-ink hover:border-ink/40'
+          }`}
+        >
+          {tapMode ? 'Salir del modo selección' : 'Seleccionar por toques'}
+        </button>
+
+        <p className="text-xs text-ink/60">
+          {tapMode
+            ? anchor
+              ? 'Toca el último día del bloqueo. Otro toque después mueve el extremo.'
+              : 'Toca el primer día libre del bloqueo.'
+            : 'Arrastra sobre los días libres de una unidad para bloquearlos.'}
+        </p>
+      </div>
     </>
   )
 }
