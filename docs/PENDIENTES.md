@@ -167,13 +167,24 @@ país soportado por Stripe, y Venezuela no lo está. Ver `docs/ARCHITECTURE.md`.
 
 ## ~~Tipo de documento de identidad~~ — hecho el 2026-08-10
 
-Implementado en `src/lib/document.ts` y `src/components/document-input.tsx`, con
-validación de servidor en los cuatro formularios. Se conserva la especificación
-abajo porque documenta **por qué** se valida lo que se valida.
+Implementado en `src/lib/document.ts` y `src/components/document-input.tsx`. Los
+cuatro formularios validan también en servidor con `documentError()`: checkout
+público, reserva nueva del panel, reporte de pago y cuentas de cobro.
+
+**Una nota sobre los 9 dígitos.** La especificación de abajo dice que
+`V-12345678-9` es un RIF personal y se valida con el algoritmo. El código lo
+acepta como cédula sin comprobar verificador, y reserva la comprobación para 10
+dígitos. Es deliberado: las cédulas venezolanas van por ocho dígitos y subiendo,
+y las de nueve ya existen. Validarlas como RIF rechazaría documentos legítimos —
+justo lo que la especificación advierte que no se haga. La ambigüedad se resuelve
+a favor de aceptar.
+
+Se conserva la especificación completa abajo porque documenta **por qué** se
+valida lo que se valida.
 
 ---
 
-## Tipo de documento de identidad
+### Especificación conservada — tipo de documento de identidad
 
 Hoy el documento es un campo de texto libre donde el huésped escribe
 `V-27866046` a mano. Debe pasar a **selector de tipo + campo de número**.
