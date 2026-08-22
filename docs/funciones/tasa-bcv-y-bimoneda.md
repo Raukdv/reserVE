@@ -162,8 +162,44 @@ defensa sobre el número con el que se factura.
 
 ## Cómo se alimenta
 
-`pnpm rate:fetch` descarga la tasa y la registra. Corre por cron diario, que es
-lo único que permite el plan Hobby de Vercel.
+`pnpm rate:fetch` descarga la tasa y la registra. En producción la pide el
+endpoint `/api/cron/daily`, y lo llaman dos relojes distintos.
+
+**El cron de Vercel, una vez al día.** Hace el trabajo completo: tasa,
+recordatorios de llegada y poda de bitácoras. Es también el latido que impide la
+pausa por inactividad de Supabase.
+
+**pg_cron dentro de Supabase, cada media hora entre las 07:00 y las 21:00 VET.**
+Llama a `/api/cron/daily?only=rate`, que hace la tasa y vuelve.
+
+El segundo existe porque rige la última publicada: entre que el BCV publica y
+que nosotros leemos, estamos cobrando con una tasa que ya no es legal. Una sola
+lectura al día deja ese hueco abierto hasta 24 horas. El plan Hobby de Vercel no
+admite más de un cron diario, pero pg_cron ya corría en el proyecto y `pg_net`
+puede llamar hacia fuera, así que la frecuencia sale de la base.
+
+Son 30 sondeos al día contra el millón de invocaciones del plan, y como no se
+escribe si el valor no cambió, 29 de ellos no tocan la base.
+
+### Por qué no una Edge Function
+
+Fue la primera idea y no aguanta. Supabase no tiene planificador propio: sus
+«scheduled edge functions» son `cron.schedule` + `net.http_post`, esto mismo con
+una capa encima. Y habría que reimplementar en Deno lo que ya está en `bcv.ts`
+—divergencia entre fuentes, salto diario anómalo, el TLS relajado solo para
+`bcv.org.ve`—. Dos implementaciones de la misma norma legal es una de más.
+
+### El secreto
+
+`pg_net` manda el `CRON_SECRET` en la cabecera, así que el secreto vive en la
+base. Va en **Supabase Vault**, cifrado, no en el texto de `cron.job`: esa tabla
+la lee cualquiera con acceso a la base.
+
+Los valores no están en la migración. Los siembra
+`node --env-file=.env.local scripts/setup-rate-cron.mjs`, y **hay que volver a
+correrlo cada vez que se rote el `CRON_SECRET`** — si no, el sondeo empieza a
+recibir 401 en silencio, porque pg_net es asíncrono y nadie mira la respuesta.
+Quien lo delata entonces es `rate_is_stale()`, tres días después.
 
 Cada intento queda en `rate_fetch_log`: sirve para distinguir «hoy no publicaron»
 de «el alimentador está caído», que desde fuera se ven igual. La tabla se poda
@@ -237,6 +273,8 @@ migraciones no pueden leer variables de entorno. Ver `PENDIENTES.md`.
 | Registro de intentos y su poda | `rate_fetch_log`, `prune_rate_fetch_log()`, migración `0002` |
 | Alimentador | `scripts/fetch-bcv-rate.mjs`, `pnpm rate:fetch` |
 | Cron diario | `vercel.json` y `src/app/api/cron/daily/route.ts` |
+| Sondeo cada media hora | `cron_ping_rate()`, migración `0034` |
+| Secretos del sondeo | Supabase Vault, `scripts/setup-rate-cron.mjs` |
 | Lectura desde Next | `src/lib/rates.ts`, `src/lib/bcv.ts` |
 | Formato bimoneda | `price()` en `src/lib/format.ts` |
 | Día del negocio en Next | `src/lib/business-date.ts` |

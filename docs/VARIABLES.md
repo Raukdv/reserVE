@@ -188,6 +188,19 @@ Ese trabajo diario hace tres cosas, y la segunda es la que sorprende:
 Conviene que el de producción sea **distinto** del local: si un día se filtra el
 de desarrollo, no abre también producción.
 
+**Está copiado en Supabase Vault.** El sondeo de tasa cada media hora sale de
+pg_cron dentro de la base, y `pg_net` necesita mandar el mismo Bearer. Al rotar
+el `CRON_SECRET` hay que correr:
+
+```bash
+node --env-file=.env.local scripts/setup-rate-cron.mjs
+```
+
+Si se olvida, el sondeo recibe 401 y **no lo dice**: pg_net es asíncrono y nadie
+lee la respuesta. La tasa se queda congelada y quien avisa es `rate_is_stale()`,
+tres días más tarde. `pnpm db:check` comprueba que los secretos siguen ahí, pero
+no que sigan valiendo.
+
 ---
 
 ## Stripe

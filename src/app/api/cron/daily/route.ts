@@ -36,6 +36,12 @@ function authorized(request: NextRequest) {
  *      BCV no publique — fines de semana y feriados incluidos.
  *   2. Recordatorios a quien llega mañana.
  *   3. Poda de bitácoras, para no crecer sin techo contra los 500 MB gratuitos.
+ *
+ * Con `?only=rate` hace solo lo primero. La tasa hay que releerla varias veces
+ * al día — la última publicada por el BCV es la legal desde ese instante, y
+ * cierra entre las 6 y las 8 de la tarde — mientras que los recordatorios y la
+ * poda son de una vez al día. El sondeo frecuente entra por ahí y no arrastra
+ * el resto del trabajo detrás.
  */
 export async function GET(request: NextRequest) {
   if (!authorized(request)) {
@@ -44,6 +50,10 @@ export async function GET(request: NextRequest) {
 
   const force = request.nextUrl.searchParams.get('force') === '1'
   const rate = await fetchAndStoreRate({ force })
+
+  if (request.nextUrl.searchParams.get('only') === 'rate') {
+    return NextResponse.json({ ok: true, rate })
+  }
 
   const supabase = createAdminClient()
 

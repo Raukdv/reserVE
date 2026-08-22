@@ -244,6 +244,29 @@ try {
   )
   check('pg_cron expira reservas pendientes', cron[0]?.active === true)
 
+  // El sondeo de tasa. Desde que rige la última publicada (migración 0033), leer
+  // una vez al día deja horas cobrando con una tasa que ya no es legal, así que
+  // esta tarea es parte del cumplimiento y no una comodidad.
+  const { rows: [ping] } = await client.query(
+    `select schedule, active from cron.job where jobname = 'fetch-bcv-rate'`,
+  )
+  check(
+    'pg_cron sondea la tasa BCV',
+    ping?.active === true,
+    ping ? `${ping.schedule} · activa=${ping.active}` : 'tarea ausente',
+  )
+
+  // Sin los secretos en Vault la tarea corre y falla en silencio: pg_net es
+  // asíncrono y nadie mira el resultado. Se comprueba que descifran, no su valor.
+  const { rows: [vault] } = await client.query(
+    `select count(*)::int as n from vault.decrypted_secrets
+     where name in ('cron_secret', 'site_url') and decrypted_secret is not null`,
+  )
+  check(
+    'Vault tiene los secretos del sondeo',
+    vault.n === 2,
+    vault.n === 2 ? undefined : `${vault.n}/2 — correr scripts/setup-rate-cron.mjs`,
+  )
 
   const { rows: bucket } = await client.query(
     `select public from storage.buckets where id = 'receipts'`,
