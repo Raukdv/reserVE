@@ -398,7 +398,7 @@ no cómo se cobra.
 
 ---
 
-## Vigilar — el BCV devuelve datos distintos entre llamadas
+## ~~Vigilar — el BCV devuelve datos distintos entre llamadas~~ — resuelto por la regla
 
 **Observado el 2026-08-18.** En cuatro consultas seguidas, con segundos entre
 ellas, la fuente autoritativa alternó entre dos respuestas:
@@ -410,39 +410,32 @@ bcv=773.3125@2026-08-18
 bcv=775.3356@2026-08-19   ←
 ```
 
-Las dos son plausibles —una rige hoy y la otra mañana— y la app las guardó
-ambas, así que nada se rompió. Pero significa que **cuál se guarda depende de a
-qué nodo caiga la petición**, y eso no es determinista.
+Probablemente una caché o un balanceador desincronizado en su lado: cuál se
+guardaba dependía de a qué nodo cayera la petición.
 
-Probablemente una caché o un balanceador desincronizado en su lado. Hace falta
-observarlo varios días antes de decidir nada: puede haber sido puntual de esa
-tarde, justo cuando publican.
+**Dejó de importar con la migración `0033`.** Desde que rige la última publicada,
+`current_rate()` toma la de mayor fecha valor. Las dos respuestas se guardan como
+antes —son filas distintas—, pero la que manda es siempre la más nueva, caiga la
+petición donde caiga. La no-determinación quedó en cuál de las dos se refresca
+primero, que no cambia lo que se cobra.
 
-Si resulta constante, las salidas son:
-
-- **Consultar dos veces y quedarse con la fecha valor mayor**, que es la que
-  acabará rigiendo de todas formas. Cuesta una petición extra por corrida.
-- **Preferir `dolarapi` cuando discrepen en fecha**, no en importe. Hoy manda el
-  BCV siempre que responda, por ser la fuente autoritativa.
-
-No tocar sin datos. El guardia de divergencia y el de salto diario ya impiden que
-una lectura absurda entre.
+Una de las salidas que se contemplaban era «consultar dos veces y quedarse con la
+fecha valor mayor». Sale gratis: con treinta sondeos al día, cualquier nodo que
+tenga la nueva la mete en cuestión de minutos.
 
 ---
 
-## Comprobar el registro contra lo que se fuerza
+## ~~Comprobar el registro contra lo que se fuerza~~ — hecho
 
-Cada consulta manual deja una línea en `rate_fetch_log`, pero **nadie las
-contrasta con lo que acabó en `exchange_rates`**. Con el botón de actualizar eso
-pasa a importar: si alguien lo pulsa varias veces, el registro dirá cuatro
-intentos y la tabla puede tener una fila, dos o ninguna nueva.
+Cada lectura deja una línea en `rate_fetch_log` y nadie las contrastaba con lo
+que acabó en `exchange_rates`. Con treinta sondeos al día y el botón manual
+encima, el registro dice muchas más lecturas que escrituras —lo normal, no se
+escribe si el valor no cambió—, así que la pregunta útil no era cuántas sino si
+coinciden.
 
-Falta una comprobación que responda: de lo que dice el registro que se leyó,
-¿qué se guardó de verdad y qué se descartó por no haber cambiado?
-
-Encaja en `pnpm db:check`, junto a las tres pruebas de tasa que ya hay. Contrastar
-la última línea del registro con la fila de esa fecha valor y avisar si el
-importe no coincide — sería la señal de que algo escribió por otro camino.
+`pnpm db:check` compara ahora la última lectura buena con la fila de esa fecha
+valor. Un importe distinto significa que algo escribió por un camino que no es el
+alimentador.
 
 ---
 

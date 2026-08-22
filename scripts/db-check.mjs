@@ -268,6 +268,30 @@ try {
     vault.n === 2 ? undefined : `${vault.n}/2 — correr scripts/setup-rate-cron.mjs`,
   )
 
+  // Nadie contrastaba el registro de intentos con lo que acabó guardado. Con
+  // treinta sondeos al día y un botón manual encima, el registro dice muchas más
+  // lecturas que escrituras —lo normal, no se escribe si el valor no cambió—,
+  // así que la pregunta útil no es cuántas sino si coinciden.
+  //
+  // Un importe distinto entre la última lectura buena y la fila de esa fecha
+  // valor significa que algo escribió por un camino que no es el alimentador.
+  const { rows: [ultima] } = await client.query(`
+    select l.rate_date, l.usd_ves as leido, e.usd_ves as guardado
+    from rate_fetch_log l
+    left join exchange_rates e
+      on e.rate_date = l.rate_date and e.market = 'oficial'
+    where l.ok and l.rate_date is not null
+    order by l.ran_at desc
+    limit 1
+  `)
+  check(
+    'lo leído coincide con lo guardado',
+    ultima ? Number(ultima.leido) === Number(ultima.guardado) : true,
+    ultima
+      ? `${ultima.rate_date.toISOString().slice(0, 10)}: leído ${ultima.leido}, guardado ${ultima.guardado ?? 'nada'}`
+      : 'sin lecturas registradas todavía',
+  )
+
   const { rows: bucket } = await client.query(
     `select public from storage.buckets where id = 'receipts'`,
   )
