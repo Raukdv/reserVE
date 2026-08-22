@@ -1,12 +1,11 @@
 import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
-import { businessToday } from '@/lib/business-date'
 
 export type RateSummary = {
-  /** Tasa oficial vigente, o null si no hay ninguna aplicable. */
+  /** Tasa oficial vigente, o null si no hay ninguna. */
   rate: number | null
-  /** Fecha valor de esa tasa. */
+  /** Fecha valor de esa tasa. Puede ser futura; ver abajo. */
   rateDate: string | null
   /** Cierto si la tasa vigente lleva más de 3 días: el alimentador falló. */
   stale: boolean
@@ -14,15 +13,6 @@ export type RateSummary = {
   gap: number | null
   /** Última lectura del paralelo. Nunca se cobra con ella. */
   parallel: number | null
-  /**
-   * Tasa ya publicada que **todavía no rige**.
-   *
-   * El BCV publica por la tarde para el siguiente día hábil, así que a partir de
-   * media tarde suele haber dos cifras vivas: la que se cobra hoy y la que se
-   * cobrará mañana. Enseñar solo una deja al operador cotizando con un número
-   * distinto del que ve en su banco.
-   */
-  next: { rate: number; rateDate: string } | null
 }
 
 /**
@@ -32,40 +22,30 @@ export type RateSummary = {
  * desde que la tabla guarda también el paralelo, un `order by rate_date` sin
  * filtro puede devolver la tasa informal, y cobrar con ella es infracción a la
  * Ley de Precios Justos.
+ *
+ * ## Por qué no hay «próxima tasa»
+ *
+ * Hubo un campo `next` para la tasa ya publicada que aún no regía, y un filtro
+ * `rate_date <= hoy` para la vigente. Ambos partían de una lectura equivocada
+ * del calendario del BCV.
+ *
+ * El BCV cierra entre las 6 y las 8 de la tarde, y lo que publica al cerrar el
+ * viernes lleva fecha valor del lunes. Esa cifra es la legal **desde que se
+ * publica**, no desde el lunes: el sábado y el domingo se cotizan con ella. No
+ * hay dos cifras vivas, hay una — la última publicada.
  */
 export async function getRateSummary(): Promise<RateSummary> {
   const supabase = await createClient()
 
-  /*
-    El corte es el día del negocio, no el de UTC.
-
-    Estaba con `new Date().toISOString()`, que es UTC, y Venezuela va cuatro
-    horas por detrás: entre las 8 de la noche y la medianoche la tasa de mañana
-    entraba como vigente antes de tiempo. Justo en las horas en que el BCV ya
-    publicó, que es cuando más se nota.
-  */
-  const today = businessToday()
-
-  const [{ data: rows }, { data: stale }, { data: gap }, { data: upcoming }] =
-    await Promise.all([
-      supabase
-        .from('exchange_rates')
-        .select('rate_date, usd_ves, market')
-        .lte('rate_date', today)
-        .order('rate_date', { ascending: false })
-        .limit(10),
-      supabase.rpc('rate_is_stale'),
-      supabase.rpc('current_gap'),
-      // La ya publicada para más adelante, si la hay.
-      supabase
-        .from('exchange_rates')
-        .select('rate_date, usd_ves')
-        .eq('market', 'oficial')
-        .gt('rate_date', today)
-        .order('rate_date')
-        .limit(1)
-        .maybeSingle(),
-    ])
+  const [{ data: rows }, { data: stale }, { data: gap }] = await Promise.all([
+    supabase
+      .from('exchange_rates')
+      .select('rate_date, usd_ves, market')
+      .order('rate_date', { ascending: false })
+      .limit(10),
+    supabase.rpc('rate_is_stale'),
+    supabase.rpc('current_gap'),
+  ])
 
   const official = (rows ?? []).find((r) => r.market === 'oficial') ?? null
   const parallel = (rows ?? []).find((r) => r.market === 'paralelo') ?? null
@@ -76,6 +56,5 @@ export async function getRateSummary(): Promise<RateSummary> {
     stale: stale ?? true,
     gap: gap ?? null,
     parallel: parallel?.usd_ves ?? null,
-    next: upcoming ? { rate: upcoming.usd_ves, rateDate: upcoming.rate_date } : null,
   }
 }

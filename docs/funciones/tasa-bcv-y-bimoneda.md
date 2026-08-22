@@ -29,14 +29,20 @@ El panel lo dice en la propia pantalla cuando la brecha pasa del 5 %.
 
 ---
 
-## La fecha valor: el BCV publica hoy para mañana
+## La fecha valor no marca el inicio de la vigencia
 
-Es la particularidad que más código condiciona.
+Es la particularidad que más código condiciona, y la que estuvo mal entendida
+más tiempo.
 
-El BCV publica de lunes a viernes por la tarde, y esa tasa **entra en vigor el
-siguiente día hábil**. No es la tasa de hoy: es la de mañana, publicada hoy. Por
-eso la tabla se indexa por `rate_date` —la fecha en que la tasa *vale*— y no por
-el momento en que se descargó:
+El BCV abre sobre las 7:00 y cierra entre las 18:00 y las 20:00 VET. Lo que
+publica al cerrar el viernes lleva **fecha valor del lunes**. Pero esa cifra es
+la legal desde que se publica, no desde el lunes: el sábado y el domingo se
+cotizan con ella.
+
+O dicho corto: **rige la última publicada**, sea de mañana, tarde o noche.
+
+La tabla se indexa igual por `rate_date` —la fecha valor que el BCV declara—,
+porque es lo que hay que llevar a la factura y lo que identifica la publicación:
 
 ```sql
 create table exchange_rates (
@@ -48,11 +54,27 @@ create table exchange_rates (
 )
 ```
 
-`current_rate()` toma la última con `rate_date <= business_today()`. Una tasa con
-fecha valor futura ya descargada **no se usa** hasta que llegue su día.
+`current_rate()` toma la de mayor `rate_date`, sin filtrar por el día. Una tasa
+con fecha valor futura **sí se usa**, desde que se descarga.
 
-Consecuencia práctica: la tasa **no cambia durante el día**. Una reserva cotizada
-por la mañana y pagada por la tarde tiene el mismo importe en bolívares.
+### Lo que estaba mal
+
+Hasta la migración `0033` había un filtro `rate_date <= business_today()`. La
+lectura era que la fecha valor marcaba el inicio de la vigencia. No es así, y
+costaba dinero: el sábado y el domingo se cotizaba con el cierre del jueves, que
+para entonces el BCV ya había reemplazado dos veces. El fin de semana del
+2026-08-21 eso eran 779,9522 en vez de 784,6633 — un 0,6 % de menos en cada
+reserva.
+
+### La consecuencia incómoda
+
+La tasa **puede cambiar durante el día**, en el momento en que el BCV publique.
+Una reserva cotizada por la mañana y pagada después de un cierre lleva importes
+distintos en bolívares. `refresh_booking_rate()` ya existía para eso.
+
+Y traslada toda la responsabilidad al alimentador: si no leemos poco después de
+que el BCV cierre, cobramos con una tasa que dejó de ser la legal. Leer seguido
+pasa de comodidad a cumplimiento.
 
 ---
 
@@ -111,16 +133,15 @@ que recalcularlo — la reserva sigue viva.
 
 ---
 
-## Dos cifras vivas a la vez
+## Una sola cifra viva
 
-Desde media tarde suele haber dos: la que rige hoy y la que el BCV ya publicó
-para el siguiente día hábil. El panel las enseña por separado.
+Hubo un bloque en el panel que enseñaba dos: «hoy se cobra a X, el BCV ya publicó
+Y con fecha valor Z, que entra en vigor ese día». Era la misma equivocación de
+antes vestida de interfaz. Cifra viva hay una, la última publicada, y el panel la
+muestra con su fecha valor al lado.
 
-> Hoy se cobra a 773,313. El BCV ya publicó 775,336 con fecha valor 2026-08-19,
-> que entra en vigor ese día.
-
-No es adorno. El operador cotiza por teléfono mirando la pantalla, y si solo ve
-un número no sabe si es el que le van a cobrar en el banco hoy o el de mañana.
+Que la fecha valor esté por delante del calendario es normal desde el viernes por
+la tarde hasta el lunes. No significa que no rija.
 
 **El botón «Actualizar tasa»** del resumen pide una consulta sin esperar al cron
 diario. Dos cosas que hace y conviene saber:
@@ -173,7 +194,7 @@ El IGTF va aparte y **no es una tasa**: lo causa el medio de pago. Ver
 `pnpm db:check` prueba las tres reglas que más caro salen si fallan:
 
 ```
-ok   ignora tasa con fecha valor futura — antes 771,07, después 771,07
+ok   usa la última publicada aunque su fecha valor sea futura
 ok   current_rate() ignora el paralelo — oficial 771,07 con paralelo en 5000
 ok   rechaza cotizar con tasa rancia — {"ok":false,"error":"stale_rate"}
 ```

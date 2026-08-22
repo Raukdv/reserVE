@@ -60,13 +60,6 @@ export async function refreshRate(): Promise<RefreshState> {
     `Hoy se cobra a ${vigente}.`,
   ]
 
-  if (summary.next) {
-    partes.push(
-      `Ya publicada para el ${summary.next.rateDate}: ` +
-      `${summary.next.rate.toLocaleString('es-VE')} Bs/USD.`,
-    )
-  }
-
   if (result.partial) partes.push('Una de las dos fuentes no respondió.')
 
   return { ok: partes.join(' ') }

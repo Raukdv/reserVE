@@ -63,23 +63,23 @@ el momento de cotizar. Una reserva de hace tres meses jamás se recalcula con la
 de hoy. Sin este snapshot, los reportes de ingresos y los saldos pendientes se vuelven
 ficción.
 
-**Fecha valor, no fecha de descarga.** El BCV publica de lunes a viernes entre las 4 y
-las 5 de la tarde (hora de Venezuela), y la tasa publicada **entra en vigencia el día
-hábil siguiente**. `exchange_rates.rate_date` guarda esa fecha valor —la que el propio
-BCV declara en su página—, no el día en que el alimentador la descargó.
+**Fecha valor, no fecha de descarga.** `exchange_rates.rate_date` guarda la fecha valor
+que el propio BCV declara en su página, no el día en que el alimentador la descargó. La
+publicada al cierre del viernes lleva fecha valor del lunes.
 
-De ahí que `current_rate()` no devuelva la fila más reciente, sino la de mayor fecha
-valor **que ya haya entrado en vigencia**. Devolver la más reciente cobraría con la
-tasa de mañana durante toda la tarde de hoy.
+**Rige la última publicada.** `current_rate()` devuelve la de mayor fecha valor, sin
+mirar el calendario. El BCV abre sobre las 7:00 y cierra entre las 18:00 y las 20:00
+VET, y lo que publica es la tasa legal **desde ese instante** —sea de mañana, tarde o
+noche—, no desde su fecha valor. El sábado y el domingo se cotizan con el último cierre
+del viernes, hasta que el BCV vuelve a abrir el lunes.
 
-El cron corre a las 17:30 hora de Venezuela, con la ventana de publicación ya cerrada.
-Corre todos los días, incluidos fines de semana y feriados: aunque no haya publicación
-nueva, la escritura diaria es lo que impide la pausa por inactividad de Supabase.
+Hubo un filtro `rate_date <= business_today()` partiendo de que la fecha valor marcaba
+el inicio de la vigencia. Costaba dinero: el fin de semana del 2026-08-21 cotizaba a
+779,9522 cuando lo legal eran 784,6633, un 0,6 % de menos en cada reserva.
 
-**Consultar más seguido no aporta nada.** La tasa oficial es un promedio ponderado que
-el BCV publica una vez y que no cambia durante la jornada. Una lectura diaria no es una
-aproximación: es exacta. Por eso el límite de cron diario del plan Hobby de Vercel no
-cuesta un solo punto básico de precisión.
+**Consultar más seguido sí aporta.** Con esta regla, entre que el BCV publica y que
+nosotros leemos estamos cobrando con una tasa que ya no es la legal. La frecuencia de
+lectura deja de ser comodidad y pasa a ser cumplimiento — ver `docs/funciones/tasa-bcv-y-bimoneda.md`.
 
 **El monto en bolívares caduca; la reserva no.** `bookings.rate_date` guarda la fecha
 valor de `rate_snapshot`. Cuando deja de coincidir con `current_rate_date()`, la cifra

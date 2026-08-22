@@ -118,24 +118,29 @@ try {
   )
   check('quote_stay() responde', q.q !== null, JSON.stringify(q.q))
 
-  // La tasa publicada entre 4 y 5 PM rige para el día hábil siguiente, así que
-  // una tasa con fecha valor futura no debe usarse todavía.
+  // El BCV cierra entre las 6 y las 8 de la tarde y lo que publica al cerrar el
+  // viernes lleva fecha valor del lunes. Desde ese instante es la tasa legal: no
+  // espera al lunes. Así que una tasa con fecha valor futura sí debe usarse.
+  //
+  // Se sonda con una fecha lejana y se borra después, para no pisar la fila real
+  // de mañana — que existe en cuanto el BCV publica por la tarde.
   const { rows: [rateBefore] } = await client.query('select current_rate() as r')
-  // `on conflict` porque la fila de mañana puede existir ya: el BCV publica por
-  // la tarde para el día siguiente, así que cualquier corrida vespertina la
-  // encuentra ocupada. Con un `insert` a secas la prueba reventaba por clave
-  // duplicada en vez de comprobar lo que dice comprobar.
   await client.query(
     `insert into exchange_rates (rate_date, market, usd_ves, source)
-     values (business_today() + 1, 'oficial', 999.999999, 'prueba')
+     values (business_today() + 90, 'oficial', 999.999999, 'prueba')
      on conflict (rate_date, market) do update set usd_ves = excluded.usd_ves`,
   )
   const { rows: [rateAfter] } = await client.query('select current_rate() as r')
+  await client.query(
+    `delete from exchange_rates
+     where market = 'oficial' and rate_date = business_today() + 90`,
+  )
   check(
-    'ignora tasa con fecha valor futura',
-    String(rateBefore.r) === String(rateAfter.r),
+    'usa la última publicada aunque su fecha valor sea futura',
+    Number(rateAfter.r) === 999.999999,
     `antes ${rateBefore.r}, después ${rateAfter.r}`,
   )
+
 
   // Cobrar al paralelo es infracción a la Ley de Precios Justos: current_rate()
   // solo puede mirar el mercado oficial.
@@ -238,6 +243,7 @@ try {
     `select active from cron.job where jobname = 'expire-stale-bookings'`,
   )
   check('pg_cron expira reservas pendientes', cron[0]?.active === true)
+
 
   const { rows: bucket } = await client.query(
     `select public from storage.buckets where id = 'receipts'`,
