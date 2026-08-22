@@ -9,50 +9,39 @@ como tales, porque implementarlas sin la respuesta es adivinar.
 
 ---
 
-## 🗣 Consulta — ¿al huésped que no aparece se le devuelve algo?
+## Auditoría nocturna completa — más allá del no-show
 
-**Para preguntar a operadores de alojamiento en Venezuela.** De la respuesta
-depende si hace falta escribir código o no.
+**Resuelto lo pequeño, anotado lo grande.**
 
-### Por qué se pregunta
+La consulta a operadores está cerrada: **al que no aparece no se le devuelve
+nada**. De ahí salieron las migraciones `0031` y `0032` — estado `no_show` propio
+y `staff_mark_no_show()`, que fija `refund_due_usd = 0` explícitamente en vez de
+pasar por `cancellation_quote()`. Lo cobrado se queda. Ver
+`docs/funciones/night-audit.md`.
 
-Hoy, cuando alguien no se presenta, la única salida es **cancelar**, que calcula
-el reembolso con la política de cancelación: si el tramo vigente dice 50 %, se le
-devuelve el 50 %. En hotelería un *no-show* suele tratarse distinto —se retiene
-lo cobrado— y por eso los PMS lo tienen como estado propio, separado de la
-cancelación. Ver `docs/funciones/night-audit.md`.
+### Lo que queda anotado
 
-No se ha construido ese estado a propósito: no se sabe si aquí se usa.
+Al responder salió algo que no estaba en el planteamiento: **`no_show` no es una
+funcionalidad suelta, es un estado dentro de un proceso mayor**. La auditoría
+nocturna de un alojamiento real, la que se hace de madrugada antes de abrir el
+día siguiente, abarca bastante más:
 
-### Qué preguntar exactamente
+- **Las habitaciones**, que es lo único que hoy cubrimos: quién no llegó, quién
+  se fue sin avisar, qué estadía venció sin cerrarse.
+- **El dinero.** Cuadre de lo cobrado contra lo registrado. En un sitio que cobra
+  por transferencia, efectivo en dos monedas y punto de venta, esto es el grueso
+  del trabajo.
+- **El cierre de cajas.** Cuánto había al abrir, cuánto al cerrar, quién lo contó.
+- **La preparación del día siguiente.** Llegadas previstas, habitaciones a
+  preparar, cobros pendientes que vencen.
 
-1. **¿Al que reserva, paga el anticipo y no aparece, le devuelven algo?**
-   ¿Todo, una parte, nada?
-2. **¿Depende de si avisó?** Un «no llego» por WhatsApp la víspera, ¿se trata
-   como cancelación tardía o como no-show?
-3. **¿Cuánto esperan antes de darlo por perdido?** ¿La noche entera, hasta una
-   hora concreta, hasta el día siguiente?
-4. **¿Revenden la noche si el huésped no llega?** Si la respuesta es que casi
-   nunca —reserva anticipada, temporada— el no-show duele menos y quizá no
-   merece estado propio.
-5. **¿Lo distinguen en sus cuentas?** Si un no-show y una cancelación acaban en
-   la misma casilla del cuaderno, tampoco hacen falta dos estados aquí.
+Nada de esto está construido y no hace falta que lo esté para operar. Se anota
+porque la pieza que sí hicimos encaja dentro de este marco, y cuando llegue el
+momento de un cierre diario de verdad conviene saber que `no_show` era una
+esquina de algo más grande, no una funcionalidad terminada.
 
-### Qué se hace con cada respuesta
-
-- **«Se retiene todo, y lo contamos aparte»** → hace falta el estado `no_show`:
-  migración del enum `booking_status`, acción propia que libere las fechas sin
-  pasar por `cancellation_quote()`, y su casilla en los informes.
-- **«Se aplica la misma política que a una cancelación»** → no hay nada que
-  hacer. Lo actual ya lo cubre y el bloque «Requieren revisión» basta.
-- **«Depende, se habla con cada uno»** → tampoco hace falta estado nuevo, pero
-  quizá sí una nota libre en la reserva para dejar constancia de lo acordado.
-
-### Lo que ya está resuelto
-
-La detección. El panel señala las estadías que vencieron sin cerrarse y el
-operador decide. Esta consulta solo afecta a **qué opciones** tiene para
-decidir, no a si se entera.
+Condiciona además la sección de ganancias pendiente: un cierre de caja y un
+informe de ingresos leen de las mismas cifras.
 
 ---
 
