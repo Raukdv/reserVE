@@ -341,12 +341,30 @@ export function CalendarGrid({
           {tapMode ? 'Salir del modo selección' : 'Seleccionar por toques'}
         </button>
 
+        {/*
+          Fuera del modo, la instrucción depende del puntero: en una pantalla
+          táctil el arrastre no existe, así que decir «arrastra» manda al
+          operador a intentar algo que no puede funcionar. Se resuelve con las
+          variantes de Tailwind y no con `matchMedia`, para que el servidor y el
+          cliente pinten lo mismo y no haya desajuste de hidratación.
+        */}
         <p className="text-xs text-ink/60">
-          {tapMode
-            ? anchor
-              ? 'Toca el último día del bloqueo. Otro toque después mueve el extremo.'
-              : 'Toca el primer día libre del bloqueo.'
-            : 'Arrastra sobre los días libres de una unidad para bloquearlos.'}
+          {tapMode ? (
+            anchor ? (
+              'Toca el último día del bloqueo. Otro toque después mueve el extremo.'
+            ) : (
+              'Toca el primer día libre del bloqueo.'
+            )
+          ) : (
+            <>
+              <span className="pointer-coarse:hidden">
+                Arrastra sobre los días libres de una unidad para bloquearlos.
+              </span>
+              <span className="hidden pointer-coarse:inline">
+                Toca «Seleccionar por toques» y marca el primer y el último día.
+              </span>
+            </>
+          )}
         </p>
       </div>
     </>
