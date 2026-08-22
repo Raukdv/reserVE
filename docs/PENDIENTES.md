@@ -307,31 +307,31 @@ Ver `docs/funciones/calendario-y-bloqueos.md`.
 
 ---
 
-## ~~Bloquear fechas desde el movil~~ - hecho
+## ~~Bloquear fechas desde el móvil~~ — hecho
 
-El arrastre se apoyaba en `mousedown` y `mouseenter`, que en tactil no existen.
-Resuelto con **dos toques** dentro de un modo explicito, en `CalendarGrid`:
+El arrastre se apoyaba en `mousedown` y `mouseenter`, que en táctil no existen.
+Resuelto con **dos toques** dentro de un modo explícito, en `CalendarGrid`:
 
 1. Toque en una casilla libre marca el inicio, con un anillo que lo distingue.
-2. Toque en otra cierra el rango y abre la confirmacion de siempre.
-3. Un tercer toque mueve el extremo mas cercano en vez de reiniciar.
+2. Toque en otra cierra el rango y abre la confirmación de siempre.
+3. Un tercer toque mueve el extremo más cercano en vez de reiniciar.
 
-El boton se muestra siempre, no solo bajo `(pointer: coarse)`. Dentro del modo
-las casillas son `<button>` de verdad, asi que **tambien cubre el teclado**, que
-la especificacion daba por perdido.
+El botón se muestra siempre, no solo bajo `(pointer: coarse)`. Dentro del modo
+las casillas son `<button>` de verdad, así que **también cubre el teclado**, que
+la especificación daba por perdido.
 
 ### Dos fallos que salieron al hacerlo
 
-**La seleccion cruzaba estadias.** Las casillas ocupadas se ignoraban al pasar
-por encima, pero la de mas alla si extendia el rango, y el bloqueo salia con una
-reserva dentro. La base lo rechazaba por el `EXCLUDE`, asi que nada se rompia,
-pero el operador recibia un error en vez de un tope visible. Ahora `reach()`
+**La selección cruzaba estadías.** Las casillas ocupadas se ignoraban al pasar
+por encima, pero la de más allá sí extendía el rango, y el bloqueo salía con una
+reserva dentro. La base lo rechazaba por el `EXCLUDE`, así que nada se rompía,
+pero el operador recibía un error en vez de un tope visible. Ahora `reach()`
 frena en la primera ocupada, y vale para el arrastre y para los toques.
 
-**El ultimo dia daba un rango vacio.** La salida se leia de la columna siguiente
-recortada a la ventana, asi que seleccionar el dia 45 daba `from == to`. Con el
+**El último día daba un rango vacío.** La salida se leía de la columna siguiente
+recortada a la ventana, así que seleccionar el día 45 daba `from == to`. Con el
 arrastre costaba llegar; tabulando hasta el final, no. Ahora se calcula sumando
-un dia, que puede caer fuera de los 45 pintados.
+un día, que puede caer fuera de los 45 pintados.
 
 ---
 
