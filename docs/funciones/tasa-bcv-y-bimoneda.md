@@ -189,6 +189,30 @@ una capa encima. Y habría que reimplementar en Deno lo que ya está en `bcv.ts`
 —divergencia entre fuentes, salto diario anómalo, el TLS relajado solo para
 `bcv.org.ve`—. Dos implementaciones de la misma norma legal es una de más.
 
+### Las dos fuentes se desalinean de noche
+
+`bcv.org.ve` es la autoritativa; dolarapi es el contraste. Desde que el BCV
+cierra hasta que dolarapi refresca —una noche entera, o todo el fin de semana—
+dolarapi sirve la publicación anterior:
+
+```
+bcv=784.6633@2026-08-24   ← el cierre del viernes
+dolarapi=779.9522@2026-08-21   ← una publicación por detrás
+```
+
+No es una contradicción: hablan de fechas valor distintas. Por eso el cotejo de
+divergencia solo corre **cuando las dos fechas valor coinciden**, y si no, se
+anota `[sin cotejo: fechas valor distintas]` y se sigue.
+
+Antes no hacía falta porque el único cron corría a las 17:30 VET, con el BCV
+todavía abierto y las fuentes alineadas. Sondeando hasta las 21:00 se pisa esa
+ventana todas las tardes, y comparando a ciegas un cierre con movimiento mayor
+del 1 % —los ha habido del 1,66 %— habría hecho fallar todos los sondeos de la
+noche justo cuando hay tasa nueva que recoger.
+
+El salto contra lo ya guardado (`MAX_DAILY_JUMP`, 15 %) se comprueba igual, así
+que una cifra absurda de cualquiera de las dos sigue sin entrar.
+
 ### El secreto
 
 `pg_net` manda el `CRON_SECRET` en la cabecera, así que el secreto vive en la

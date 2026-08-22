@@ -184,10 +184,29 @@ export async function fetchAndStoreRate({ force = false } = {}): Promise<FetchRe
 
   if (!api && !bcv) return fail(`ninguna fuente respondió — ${notes.join(' | ')}`)
 
+  /*
+    La comprobación de divergencia solo tiene sentido entre cifras de la misma
+    fecha valor. dolarapi va una publicación por detrás desde que el BCV cierra
+    —sobre las 18:00–20:00 VET— hasta que refresca, y en esa ventana las dos
+    fuentes no se contradicen: hablan de días distintos.
+
+    Antes no se notaba porque el único cron corría a las 17:30 VET, con el BCV
+    aún abierto y las dos fuentes alineadas. Al sondear cada media hora hasta las
+    21:00, la ventana se pisa todas las tardes. Comparando a ciegas, un cierre
+    con un movimiento superior al 1 % —los ha habido del 1,66 %— haría fallar
+    todos los sondeos de la noche justo cuando hay tasa nueva que recoger.
+
+    Cuando las fechas no coinciden se anota y se sigue: la autoritativa es el
+    BCV, y el salto contra lo ya guardado se comprueba igual más abajo.
+  */
   if (api && bcv) {
-    const divergence = Math.abs(api.oficial.value - bcv.value) / Math.max(api.oficial.value, bcv.value)
-    if (divergence > MAX_SOURCE_DIVERGENCE && !force) {
-      return fail(`fuentes divergen ${(divergence * 100).toFixed(2)}% — ${notes.join(' | ')}`)
+    if (api.oficial.valueDate === bcv.valueDate) {
+      const divergence = Math.abs(api.oficial.value - bcv.value) / Math.max(api.oficial.value, bcv.value)
+      if (divergence > MAX_SOURCE_DIVERGENCE && !force) {
+        return fail(`fuentes divergen ${(divergence * 100).toFixed(2)}% — ${notes.join(' | ')}`)
+      }
+    } else {
+      notes.push('[sin cotejo: fechas valor distintas]')
     }
   }
 
