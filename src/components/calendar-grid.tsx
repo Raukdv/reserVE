@@ -314,13 +314,22 @@ export function CalendarGrid({
         className="sticky top-0 z-20 mt-6 overflow-x-auto rounded-t-2xl border border-ink/10 bg-white"
       >
         <div className="min-w-max">
-          <div className="flex border-b border-ink/8 bg-ink/3">
-            <div className="w-44 shrink-0 border-r border-ink/10" />
+          {/*
+            El tinte va en cada mes, no en la fila.
+
+            La columna de unidades se queda pegada a la izquierda y tiene que ser
+            opaca —si no, los días le pasan por debajo y se leen a través—. Con
+            el tinte en la fila, la celda pegada tendría que repetirlo en opaco y
+            no hay token sólido para `ink/3`. Poniéndolo en los meses, la celda
+            pegada es blanca y el tinte empieza donde empiezan los días.
+          */}
+          <div className="flex border-b border-ink/8">
+            <div className="sticky left-0 z-10 w-44 shrink-0 border-r border-ink/10 bg-white" />
             {months.map((m) => (
               <div
                 key={m.name}
                 style={{ width: `${m.span * DAY_WIDTH}px` }}
-                className="shrink-0 overflow-hidden border-l border-ink/20 px-1.5 py-1 text-[11px] font-medium text-ink/70 first:border-l-0 first-letter:uppercase"
+                className="shrink-0 overflow-hidden border-l border-ink/20 bg-ink/3 px-1.5 py-1 text-[11px] font-medium text-ink/70 first:border-l-0 first-letter:uppercase"
                 title={m.name}
               >
                 {/* Con pocos días en la ventana, el nombre largo no cabe. */}
@@ -330,7 +339,7 @@ export function CalendarGrid({
           </div>
 
           <div className="flex">
-            <div className="w-44 shrink-0 border-r border-ink/10 px-3 py-2 text-xs font-medium text-ink/70">
+            <div className="sticky left-0 z-10 w-44 shrink-0 border-r border-ink/10 bg-white px-3 py-2 text-xs font-medium text-ink/70">
               Unidad
             </div>
             {days.map((d) => (
@@ -371,7 +380,18 @@ export function CalendarGrid({
         >
           {units.map((unit) => (
             <div key={unit.id} className="flex border-b border-ink/8 last:border-b-0">
-              <div className="w-44 shrink-0 truncate border-r border-ink/10 px-3 py-2.5 text-sm">
+              {/*
+                Pegada a la izquierda, y por encima de las barras.
+
+                Al desplazar a la derecha se perdían los nombres y quedaban
+                barras de colores sin saber de qué unidad eran — el mismo
+                problema que la cabecera resolvió en vertical.
+
+                El `z-10` importa: las barras van en absoluto dentro de la fila y
+                sin él pasarían por encima del nombre en vez de por debajo. Y el
+                fondo blanco tiene que ser sólido por lo mismo.
+              */}
+              <div className="sticky left-0 z-10 w-44 shrink-0 truncate border-r border-ink/10 bg-white px-3 py-2.5 text-sm">
                 {unit.name}
               </div>
 
