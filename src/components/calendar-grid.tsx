@@ -62,7 +62,21 @@ function nextDay(iso: string) {
  *
  * El ancho no cambia: sigue siendo una columna por noche. Solo se corre.
  *
- * ## Por qué hay dos formas de seleccionar
+ * ## Con el ratón: arrastrar, o clic y clic
+ *
+ * Arrastrar sobre los días libres cierra el rango al soltar. Y un clic suelto
+ * propone una noche, que después se estira con un segundo clic en el día final:
+ * el extremo más cercano se lleva hasta ahí. Las dos formas conviven porque la
+ * cómoda depende del largo — una noche se marca de un clic, doce días se
+ * arrastran mal si hay que cruzar media pantalla.
+ *
+ * Lo delicado es que al **pulsar** sobre una selección ya abierta todavía no se
+ * sabe qué quiere el operador: puede ser el clic que ajusta el extremo, o el
+ * principio de un arrastre nuevo. Por eso la pulsación queda en espera y lo
+ * decide el primer `mouseenter`: si el ratón se mueve, era arrastre y se empieza
+ * de cero; si se suelta sin moverse, era clic y se mueve el extremo.
+ *
+ * ## En táctil: dos toques dentro de un modo
  *
  * El arrastre se apoya en `mousedown` y `mouseenter`, que en una pantalla táctil
  * no existen. Imitarlo con `touchmove` obligaría a `preventDefault` sobre el
@@ -111,6 +125,8 @@ export function CalendarGrid({
   const [tapMode, setTapMode] = useState(false)
   /** Primer toque, a la espera del segundo. */
   const [anchor, setAnchor] = useState<{ unitId: string; i: number } | null>(null)
+  /** Pulsación sobre una selección abierta, sin saber aún si es clic o arrastre. */
+  const [espera, setEspera] = useState<{ unitId: string; i: number } | null>(null)
 
   // Qué columnas de cada unidad están tomadas: seleccionar sobre ellas no debe
   // proponer un bloqueo que la base va a rechazar de todas formas.
@@ -145,6 +161,7 @@ export function CalendarGrid({
   function clearSelection() {
     setRange(null)
     setAnchor(null)
+    setEspera(null)
   }
 
   function toggleTapMode() {
@@ -153,15 +170,26 @@ export function CalendarGrid({
     setDrag(null)
   }
 
+  /**
+   * Lleva el extremo más cercano de la selección hasta `i`.
+   *
+   * Es lo que permite ajustar sin rehacer: da igual que se llegue por un tercer
+   * toque en táctil o por un segundo clic con el ratón.
+   */
+  function moverExtremo(unitId: string, i: number) {
+    if (!range || range.unitId !== unitId) return
+    const cercaDeA = Math.abs(i - range.a) <= Math.abs(i - range.b)
+    setRange(
+      cercaDeA
+        ? { ...range, a: reach(unitId, range.b, i) }
+        : { ...range, b: reach(unitId, range.a, i) },
+    )
+  }
+
   function onTap(unitId: string, i: number) {
     // Tercer toque sobre una selección ya cerrada: mueve el extremo más cercano.
     if (range && range.unitId === unitId) {
-      const nearA = Math.abs(i - range.a) <= Math.abs(i - range.b)
-      setRange(
-        nearA
-          ? { ...range, a: reach(unitId, range.b, i) }
-          : { ...range, b: reach(unitId, range.a, i) },
-      )
+      moverExtremo(unitId, i)
       return
     }
 
@@ -177,7 +205,24 @@ export function CalendarGrid({
     setRange(null)
   }
 
+  /*
+    Soltar el ratón. Tres finales posibles:
+
+    - Había una pulsación en espera sobre una selección ya abierta y no se llegó
+      a mover → era un **segundo clic**: se lleva el extremo hasta ahí.
+    - Había un arrastre → se cierra el rango.
+    - Nada → nada.
+
+    La espera existe porque al pulsar sobre una selección abierta todavía no se
+    sabe qué quiere el operador: puede ser un clic para ajustar el extremo, o el
+    principio de un arrastre nuevo. Lo decide el primer `mouseenter`.
+  */
   function finishDrag() {
+    if (espera !== null) {
+      moverExtremo(espera.unitId, espera.i)
+      setEspera(null)
+      return
+    }
     if (!drag) return
     setRange(drag)
     setDrag(null)
@@ -223,7 +268,14 @@ export function CalendarGrid({
       )}
 
       <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
-        <div className="min-w-max" onMouseUp={finishDrag} onMouseLeave={() => setDrag(null)}>
+        <div
+          className="min-w-max"
+          onMouseUp={finishDrag}
+          onMouseLeave={() => {
+            setDrag(null)
+            setEspera(null)
+          }}
+        >
           {/*
             La fila de meses va aquí dentro, no encima de la caja.
 
@@ -327,11 +379,27 @@ export function CalendarGrid({
                   return (
                     <div
                       key={d.key}
-                      onMouseDown={() => selectable && setDrag({ unitId: unit.id, a: i, b: i })}
-                      onMouseEnter={() =>
-                        drag?.unitId === unit.id &&
-                        setDrag({ ...drag, b: reach(unit.id, drag.a, i) })
-                      }
+                      onMouseDown={() => {
+                        if (!selectable) return
+                        // Sobre una selección abierta, la pulsación queda en
+                        // espera: puede ser un clic para ajustar o el principio
+                        // de un arrastre nuevo. Lo decide si el ratón se mueve.
+                        if (range?.unitId === unit.id) setEspera({ unitId: unit.id, i })
+                        else setDrag({ unitId: unit.id, a: i, b: i })
+                      }}
+                      onMouseEnter={() => {
+                        if (espera) {
+                          // Se movió: era arrastre. Se empieza de cero desde la
+                          // casilla que se pulsó.
+                          setRange(null)
+                          setDrag({ unitId: espera.unitId, a: espera.i, b: reach(espera.unitId, espera.i, i) })
+                          setEspera(null)
+                          return
+                        }
+                        if (drag?.unitId === unit.id) {
+                          setDrag({ ...drag, b: reach(unit.id, drag.a, i) })
+                        }
+                      }}
                       className={`${clase} ${selectable ? 'cursor-crosshair' : ''}`}
                     />
                   )
@@ -399,7 +467,7 @@ export function CalendarGrid({
           ) : (
             <>
               <span className="pointer-coarse:hidden">
-                Arrastra sobre los días libres de una unidad para bloquearlos.
+                Arrastra sobre los días libres, o haz clic en el primer día y otro en el último.
               </span>
               <span className="hidden pointer-coarse:inline">
                 Toca «Seleccionar por toques» y marca el primer y el último día.
