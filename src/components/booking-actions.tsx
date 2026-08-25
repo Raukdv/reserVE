@@ -40,6 +40,10 @@ export type RefundPreview = {
   forfeit_nights: number | null
   forfeited_usd: number | null
   cleaning_refunded: boolean
+  /** Impuesto que llevaba la reserva, cuánto vuelve y cuánto se queda. */
+  tax_total_usd?: number
+  tax_refunded_usd?: number
+  tax_retained_usd?: number
 }
 
 export function BookingActions({
@@ -646,6 +650,25 @@ function Cancel({ code, refund }: { code: string; refund?: RefundPreview | null 
               <>Fuera de todo tramo: la política no obliga a devolver nada.</>
             )}
           </p>
+
+          {/*
+            El impuesto que se queda dentro de lo retenido.
+
+            Hay una consulta abierta sobre si la penalización de cancelación es
+            base imponible del IVA o indemnización no gravada — ver
+            `docs/PENDIENTES.md`. Mientras no la responda un contador, el
+            cálculo no se toca, pero la cifra tiene que estar a la vista: es
+            dinero de impuesto que quizá no debería retenerse.
+          */}
+          {(refund.tax_retained_usd ?? 0) > 0 && (
+            <p className="mt-1.5 text-xs text-ink/70">
+              De lo retenido, <strong className="font-medium">
+                {money(refund.tax_retained_usd!)}
+              </strong>{' '}
+              son impuestos. Está pendiente de confirmar con un contador si una
+              penalización de cancelación los causa.
+            </p>
+          )}
 
           <p className="mt-2 text-xs text-ink/60">
             El reembolso se hace por fuera de la app, por el mismo canal del cobro. Aquí

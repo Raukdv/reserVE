@@ -245,6 +245,47 @@ siguientes son `balance`.
 
 ---
 
+## Las devoluciones y el IVA
+
+Hay un hueco que conviene conocer antes de leer el resto: **devolver el IVA al
+huésped y recuperarlo del fisco son dos operaciones distintas, y solo hacemos la
+primera.**
+
+Cuando una reserva se cancela con derecho a devolución, el impuesto vuelve
+—`cancellation_quote()` lo trata como porcentaje que sigue a su base, así que si
+vuelve la base vuelve el impuesto—. Eso es correcto: sin servicio prestado no hay
+hecho imponible.
+
+Lo que falta es el otro lado. Recuperar ese impuesto del SENIAT exige una **nota
+de crédito** que anule la factura original, y este sistema **no emite facturas**.
+Así que el IVA devuelto sale del bolsillo del negocio: sobre una reserva de
+301,60 son 41,60 que se van y no vuelven.
+
+No se arregla con código nuestro. Necesita facturación autorizada, correlativo y
+libro de ventas. Ver `PENDIENTES.md`.
+
+Mientras tanto, `payments.tax_usd` anota cuánto de cada devolución fue impuesto,
+en proporción al total de la reserva. Es informativo y no entra en ninguna suma
+de cobro, pero el día que haya libro de ventas las devoluciones anteriores se
+podrán reconstruir. Un número que no se anota en el momento se pierde.
+
+### Y una consulta abierta que puede cambiar el cálculo
+
+Si la cancelación lleva penalización, hoy el impuesto se devuelve **en
+proporción**: en el tramo del 50 % vuelven 19,20 de los 41,60 y se retienen
+22,40.
+
+Hay indicios sólidos de que eso está mal —que lo retenido es una indemnización no
+sujeta a IVA, y que el impuesto debería volver íntegro—, pero no está confirmado
+por un contador. **No se ha cambiado el cálculo**: no se toca dinero sobre una
+lectura sin verificar. Lo que sí se hizo es sacar la cifra a la vista, en
+`tax_retained_usd` y en el panel, con la advertencia.
+
+El no-show es el caso extremo: se retiene todo, impuesto incluido, sobre cero
+servicio prestado. La pregunta completa está en `PENDIENTES.md`.
+
+---
+
 ## Las devoluciones
 
 Cancelar y devolver son **dos hechos distintos**, y se registran por separado.

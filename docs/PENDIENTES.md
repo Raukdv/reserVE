@@ -45,6 +45,100 @@ informe de ingresos leen de las mismas cifras.
 
 ---
 
+## 🗣 Consulta a un contador — ¿la penalización de cancelación causa IVA?
+
+**Es la única consulta abierta que puede cambiar cuánto dinero se devuelve.**
+
+### La pregunta
+
+Cuando una reserva se cancela fuera de plazo o el huésped no se presenta, el
+negocio retiene dinero. ¿Ese dinero retenido es base imponible del IVA, o es una
+indemnización no sujeta?
+
+### Lo que se ha encontrado hasta ahora
+
+Consultado con IA sobre fuentes que se citan como oficiales —**sin verificar con
+un contador**, que es justo lo que falta—. El resumen apunta en una sola
+dirección:
+
+- El hecho imponible del IVA en este sector es la **prestación efectiva del
+  servicio de hospedaje**. Si el huésped cancela o no se presenta, no se prestó
+  ningún servicio.
+- Lo retenido no es el pago de un consumo, sino **compensación por el daño** de
+  perder la venta de esa habitación. Naturaleza indemnizatoria.
+- Por tanto queda **fuera del ámbito de aplicación del IVA** (no sujeción).
+- Y el procedimiento sería: nota de crédito que anule el IVA de la factura
+  original, reintegro del **100 %** del impuesto al huésped, y registrar el neto
+  retenido como ingreso indemnizatorio exento o no sujeto.
+
+Una de las fuentes llega a decir que retener el IVA sobre una penalización es
+**cobro indebido**.
+
+### Qué pasaría si se confirma
+
+El cálculo de `cancellation_quote()` cambia: el impuesto dejaría de seguir a la
+base y volvería **íntegro** en cualquier cancelación, con o sin penalización.
+Solo se retendría el neto.
+
+Medido sobre una reserva de 301,60 —240 de alojamiento, 20 de limpieza, 41,60 de
+IVA— con la política de hoy:
+
+| Tramo | Se devuelve hoy | IVA retenido hoy | Se devolvería |
+|---|---|---|---|
+| 100 % | 301,60 | 0 | 301,60 — sin cambio |
+| 50 % | 139,20 | **22,40** | 161,60 |
+| Fuera de plazo | 0 | **41,60** | 41,60 |
+| No-show | 0 | **41,60** | 41,60 |
+
+El no-show es el caso extremo: hoy `staff_mark_no_show()` fija
+`refund_due_usd = 0` y se retiene todo, incluido un impuesto sobre cero servicio
+prestado.
+
+### Qué se ha hecho ya, sin tocar el cálculo
+
+`cancellation_quote()` devuelve `tax_total_usd`, `tax_refunded_usd` y
+`tax_retained_usd`, y el panel muestra la cifra retenida con la advertencia de
+que está pendiente de confirmar. **El dinero no ha cambiado**: no se toca un
+cálculo de cobro sobre una lectura sin verificar.
+
+### Qué preguntar exactamente
+
+1. ¿La penalización por cancelación es base imponible del IVA o indemnización no
+   sujeta?
+2. ¿Y el no-show, donde se retiene el 100 %?
+3. Si es no sujeta, ¿cómo se documenta el neto retenido —nota de crédito por el
+   total y factura nueva por la indemnización, o nota de crédito parcial?
+4. ¿Cambia algo si el cobro fue en divisas y se aplicó IGTF?
+
+### Está atado a la facturación
+
+Nada de esto se puede ejecutar sin **nota de crédito**, y este sistema no emite
+facturas. Ver el pendiente de abajo.
+
+---
+
+## Facturación fiscal — sin ella el IVA devuelto sale del bolsillo
+
+Hoy se devuelve el IVA al huésped y **no se recupera del SENIAT**, porque
+recuperarlo exige una nota de crédito que anule la factura original, y aquí no
+hay facturas: ni numeración correlativa, ni documento fiscal, ni libro de ventas.
+
+En una cancelación con devolución total de la reserva del ejemplo son **41,60 que
+salen y no vuelven**. Cada vez.
+
+No es un fallo de código. Necesita facturación autorizada por el SENIAT
+—imprenta autorizada, máquina fiscal o facturación digital—, con su correlativo y
+su libro de ventas. Es un proyecto en sí mismo y probablemente el siguiente paso
+serio cuando el negocio opere en firme.
+
+**Lo que sí se hizo mientras tanto:** `payments.tax_usd` anota cuánto de cada
+devolución fue impuesto, en proporción al total de la reserva. Es informativo y
+no participa de ninguna suma de cobro, pero un número que no se anota en el
+momento no se recupera después: el día que exista libro de ventas, las
+devoluciones anteriores se podrán reconstruir.
+
+---
+
 ## Devolver el `matcher` del middleware al abrir al público
 
 La puerta de acceso queda **decidida y en uso** — probada en local, variable ya

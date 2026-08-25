@@ -533,6 +533,8 @@ export interface Database {
           igtf_usd: number
           /** Alícuota aplicada, congelada. Null cuando no se cobró. */
           igtf_rate: number | null
+          /** Parte de este movimiento que era impuesto del desglose. Informativo. */
+          tax_usd: number | null
           origin: string | null
           reference: string | null
           paid_at: string | null
@@ -562,6 +564,7 @@ export interface Database {
           amount_usd: number
           rate_used?: number | null
           igtf_usd?: number
+          tax_usd?: number | null
           igtf_rate?: number | null
           origin?: string | null
           reference?: string | null
