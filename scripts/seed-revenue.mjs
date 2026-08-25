@@ -6,8 +6,8 @@
  *
  * ## Qué monta
  *
- * Unas cuatrocientas estadías repartidas entre las cinco unidades a lo largo de
- * doce meses, para que **Reservas**, **Pagos** e **Ingresos** tengan las tres su
+ * Más de mil estadías repartidas entre todas las unidades a lo largo de doce
+ * meses, para que **Reservas**, **Pagos** e **Ingresos** tengan las tres su
  * caso completo:
  *
  * - **Reservas** — los siete estados: completadas, una hospedada ahora mismo,
@@ -25,11 +25,12 @@
  * generador la esquiva en vez de cederle el mes entero, que era lo que dejaba
  * julio y agosto con una cuarta parte de las estadías del resto.
  *
- * ## Tarda
+ * ## Escribe en tres insertos
  *
- * Unos cuatro minutos: inserta fila a fila y son más de mil idas y vueltas a
- * Supabase. Se arreglaría con inserciones por lotes; hoy no compensa, porque una
- * siembra se corre de tarde en tarde.
+ * Todo se arma en memoria y se manda con `unnest`: uno para las retenciones,
+ * otro para las reservas y otro para los pagos. Iba fila a fila —tres consultas
+ * por reserva contra un Supabase remoto—, que con cinco unidades eran cuatro
+ * minutos y con veinte pasaban de quince. Ahora da igual el volumen.
  *
  * Los cobros en bolívares se guardan en VES con su tasa congelada, como en
  * producción: son los que enseñan el importe bimoneda.
@@ -66,6 +67,7 @@
  * Todas las reservas llevan correo `@seed.local`. `--limpiar` borra esas y sus
  * retenciones; los pagos se van solos por la cascada. Nada más se toca.
  */
+import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 
 const MARCA = '@seed.local'
@@ -410,7 +412,32 @@ try {
     ...ESTADIAS,
   ]
 
-  await client.query('begin')
+  /*
+    Se arma todo en memoria y se escribe en tres insertos.
+
+    Antes iba fila a fila: tres consultas por reserva, en serie, contra un
+    Supabase remoto. Con cinco unidades eran cuatro minutos; con veinte, más de
+    quince. Ahora son tres viajes en total, y da igual si son cuatrocientas
+    reservas o dos mil.
+
+    Los identificadores se generan aquí y no se leen de un `returning`: hacen
+    falta antes de insertar, porque el pago necesita el `booking_id` y la reserva
+    el `hold_id`. Un `returning` masivo devolvería las filas sin garantía de
+    orden, y emparejarlas por posición sería confiar en algo que Postgres no
+    promete.
+  */
+  const holds = { id: [], unidad: [], entrada: [], salida: [], activo: [] }
+  const reservas = {
+    id: [], hold: [], unidad: [], estado: [], entrada: [], salida: [],
+    nombre: [], correo: [], telefono: [], documento: [],
+    subtotal: [], tasa: [], creada: [], expira: [], cancelada: [],
+    motivo: [], reembolso: [],
+  }
+  const cobros = {
+    reserva: [], clase: [], metodo: [], estado: [], moneda: [],
+    importe: [], usd: [], tasaUsada: [], origen: [], referencia: [],
+    pagado: [], revisado: [], pagador: [], documento: [], banco: [], rechazo: [],
+  }
 
   for (const [n, e] of todas.entries()) {
     const unidad = porSlug.get(e.unidad)
@@ -443,89 +470,157 @@ try {
     // que esas pueden solaparse con una estadía viva sin chocar.
     const viva = ['completed', 'checked_in', 'confirmed', 'pending'].includes(estado)
 
-    const { rows: [hold] } = await client.query(
-      `insert into unit_holds (unit_id, stay, kind, is_active)
-       values ($1, daterange($2::date, $3::date, '[)'), 'booking', $4)
-       returning id`,
-      [unidad.id, e.in, e.out, viva],
-    )
+    const holdId = randomUUID()
+    const reservaId = randomUUID()
 
-    const { rows: [booking] } = await client.query(
-      `insert into bookings (
-         unit_id, hold_id, status, check_in, check_out, guests,
-         guest_name, guest_email, guest_phone, guest_document,
-         subtotal_usd, total_usd, rate_snapshot, rate_date, total_ves,
-         deposit_ratio, created_at, expires_at, cancelled_at, cancel_reason,
-         refund_due_usd
-       ) values (
-         $1, $2, $3, $4::date, $5::date, 2,
-         $6, $7, $8, $9,
-         $10::numeric, $10::numeric, $11::numeric, $4::date,
-         round($10::numeric * $11::numeric, 2),
-         0.3, ($4::date - 14)::timestamptz, $12::timestamptz,
-         $13::timestamptz, $14, $15::numeric
-       ) returning id, code`,
-      [
-        unidad.id, hold.id, estado, e.in, e.out,
-        e.huesped, `huesped${n + 1}${MARCA}`, e.tel, e.doc,
-        subtotal, tasa,
-        estado === 'pending' ? `${hoy}T23:00:00Z` : null,
-        estado === 'cancelled' || estado === 'no_show' ? `${e.in}T10:00:00Z` : null,
-        estado === 'cancelled' ? 'Cancelada por el huésped'
-          : estado === 'no_show' ? 'No se presentó' : null,
-        // El no-show no devuelve nada, y eso se escribe en la fila.
-        estado === 'no_show' ? 0 : null,
-      ],
+    holds.id.push(holdId)
+    holds.unidad.push(unidad.id)
+    holds.entrada.push(e.in)
+    holds.salida.push(e.out)
+    holds.activo.push(viva)
+
+    reservas.id.push(reservaId)
+    reservas.hold.push(holdId)
+    reservas.unidad.push(unidad.id)
+    reservas.estado.push(estado)
+    reservas.entrada.push(e.in)
+    reservas.salida.push(e.out)
+    reservas.nombre.push(e.huesped)
+    reservas.correo.push(`huesped${n + 1}${MARCA}`)
+    reservas.telefono.push(e.tel)
+    reservas.documento.push(e.doc)
+    reservas.subtotal.push(subtotal)
+    reservas.tasa.push(tasa)
+    reservas.creada.push(`${e.in}T09:00:00Z`)
+    reservas.expira.push(estado === 'pending' ? `${hoy}T23:00:00Z` : null)
+    reservas.cancelada.push(
+      estado === 'cancelled' || estado === 'no_show' ? `${e.in}T10:00:00Z` : null,
     )
+    reservas.motivo.push(
+      estado === 'cancelled' ? 'Cancelada por el huésped'
+        : estado === 'no_show' ? 'No se presentó' : null,
+    )
+    // El no-show no devuelve nada, y eso se escribe en la fila.
+    reservas.reembolso.push(estado === 'no_show' ? 0 : null)
 
     for (const [i, crudo] of pagos.entries()) {
-      const p = comoPago(crudo)
-      const bolivares = EN_BOLIVARES.has(p.metodo)
-      const banco = BANCOS[(n + i) % BANCOS.length]
+      const pago = comoPago(crudo)
+      const bolivares = EN_BOLIVARES.has(pago.metodo)
 
-      await client.query(
-        `insert into payments (
-           booking_id, kind, method, status, currency, amount, amount_usd,
-           rate_used, origin, reference, paid_at, reviewed_at,
-           payer_name, payer_document, payer_bank, rejection_reason
-         ) values (
-           $1, $2, $3, $4, $5, $6::numeric, $7::numeric,
-           $8::numeric, $9, $10, $11::timestamptz, $12::timestamptz,
-           $13, $14, $15, $16
-         )`,
-        [
-          booking.id,
-          i === 0 ? 'deposit' : 'balance',
-          p.metodo,
-          p.estado,
-          bolivares ? 'VES' : 'USD',
-          bolivares ? Math.round(p.usd * tasa * 100) / 100 : p.usd,
-          p.usd,
-          bolivares ? tasa : null,
-          bolivares ? e.tel : `${sinTildes(e.huesped.split(' ')[0])}@correo.com`,
-          `${p.metodo === 'pago_movil' ? '00' : 'REF'}${String(100000 + n * 7 + i).slice(-6)}`,
-          cobradoEl(e.in, i),
-          p.estado === 'verifying' ? null : cobradoEl(e.in, i),
-          e.huesped,
-          e.doc,
-          bolivares ? banco : null,
-          p.motivo ?? null,
-        ],
+      cobros.reserva.push(reservaId)
+      cobros.clase.push(i === 0 ? 'deposit' : 'balance')
+      cobros.metodo.push(pago.metodo)
+      cobros.estado.push(pago.estado)
+      cobros.moneda.push(bolivares ? 'VES' : 'USD')
+      cobros.importe.push(bolivares ? Math.round(pago.usd * tasa * 100) / 100 : pago.usd)
+      cobros.usd.push(pago.usd)
+      cobros.tasaUsada.push(bolivares ? tasa : null)
+      cobros.origen.push(
+        bolivares ? e.tel : `${sinTildes(e.huesped.split(' ')[0])}@correo.com`,
       )
+      cobros.referencia.push(
+        `${pago.metodo === 'pago_movil' ? '00' : 'REF'}${String(100000 + n * 7 + i).slice(-6)}`,
+      )
+      cobros.pagado.push(cobradoEl(e.in, i))
+      // Lo que espera verificación todavía no lo ha mirado nadie.
+      cobros.revisado.push(pago.estado === 'verifying' ? null : cobradoEl(e.in, i))
+      cobros.pagador.push(e.huesped)
+      cobros.documento.push(e.doc)
+      cobros.banco.push(bolivares ? BANCOS[(n + i) % BANCOS.length] : null)
+      cobros.rechazo.push(pago.motivo ?? null)
     }
 
     if (devuelto) {
       const [metodo, importe] = devuelto
-      await client.query(
-        `insert into payments (
-           booking_id, kind, method, status, currency, amount, amount_usd,
-           reference, paid_at, reviewed_at, payer_name
-         ) values ($1, 'refund', $2, 'refunded', 'USD', $3::numeric, $3::numeric, $4,
-                   $5::timestamptz, $5::timestamptz, $6)`,
-        [booking.id, metodo, importe, `DEV-${booking.code}`, `${e.in}T16:00:00Z`, e.huesped],
-      )
+
+      cobros.reserva.push(reservaId)
+      cobros.clase.push('refund')
+      cobros.metodo.push(metodo)
+      cobros.estado.push('refunded')
+      cobros.moneda.push('USD')
+      cobros.importe.push(importe)
+      cobros.usd.push(importe)
+      cobros.tasaUsada.push(null)
+      cobros.origen.push(null)
+      cobros.referencia.push(`DEV-${String(n).padStart(4, '0')}`)
+      cobros.pagado.push(`${e.in}T16:00:00Z`)
+      cobros.revisado.push(`${e.in}T16:00:00Z`)
+      cobros.pagador.push(e.huesped)
+      cobros.documento.push(e.doc)
+      cobros.banco.push(null)
+      cobros.rechazo.push(null)
     }
   }
+
+  await client.query('begin')
+
+  await client.query(
+    `insert into unit_holds (id, unit_id, stay, kind, is_active)
+     select id, unidad, daterange(entrada, salida, '[)'), 'booking', activo
+       from unnest($1::uuid[], $2::uuid[], $3::date[], $4::date[], $5::boolean[])
+         as t(id, unidad, entrada, salida, activo)`,
+    [holds.id, holds.unidad, holds.entrada, holds.salida, holds.activo],
+  )
+
+  await client.query(
+    `insert into bookings (
+       id, hold_id, unit_id, status, check_in, check_out, guests,
+       guest_name, guest_email, guest_phone, guest_document,
+       subtotal_usd, total_usd, rate_snapshot, rate_date, total_ves,
+       deposit_ratio, created_at, expires_at, cancelled_at, cancel_reason,
+       refund_due_usd
+     )
+     select
+       id, hold, unidad, estado::booking_status, entrada, salida, 2,
+       nombre, correo, telefono, documento,
+       subtotal, subtotal, tasa, entrada, round(subtotal * tasa, 2),
+       0.3, creada, expira, cancelada, motivo,
+       reembolso
+     from unnest(
+       $1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::date[], $6::date[],
+       $7::text[], $8::text[], $9::text[], $10::text[],
+       $11::numeric[], $12::numeric[], $13::timestamptz[], $14::timestamptz[],
+       $15::timestamptz[], $16::text[], $17::numeric[]
+     ) as t(
+       id, hold, unidad, estado, entrada, salida,
+       nombre, correo, telefono, documento,
+       subtotal, tasa, creada, expira, cancelada, motivo, reembolso
+     )`,
+    [
+      reservas.id, reservas.hold, reservas.unidad, reservas.estado,
+      reservas.entrada, reservas.salida, reservas.nombre, reservas.correo,
+      reservas.telefono, reservas.documento, reservas.subtotal, reservas.tasa,
+      reservas.creada, reservas.expira, reservas.cancelada, reservas.motivo,
+      reservas.reembolso,
+    ],
+  )
+
+  await client.query(
+    `insert into payments (
+       booking_id, kind, method, status, currency, amount, amount_usd,
+       rate_used, origin, reference, paid_at, reviewed_at,
+       payer_name, payer_document, payer_bank, rejection_reason
+     )
+     select
+       reserva, clase::payment_kind, metodo::payment_method, estado::payment_status,
+       moneda, importe, usd, tasa, origen, referencia, pagado, revisado,
+       pagador, documento, banco, rechazo
+     from unnest(
+       $1::uuid[], $2::text[], $3::text[], $4::text[], $5::text[],
+       $6::numeric[], $7::numeric[], $8::numeric[], $9::text[], $10::text[],
+       $11::timestamptz[], $12::timestamptz[], $13::text[], $14::text[],
+       $15::text[], $16::text[]
+     ) as t(
+       reserva, clase, metodo, estado, moneda, importe, usd, tasa,
+       origen, referencia, pagado, revisado, pagador, documento, banco, rechazo
+     )`,
+    [
+      cobros.reserva, cobros.clase, cobros.metodo, cobros.estado, cobros.moneda,
+      cobros.importe, cobros.usd, cobros.tasaUsada, cobros.origen,
+      cobros.referencia, cobros.pagado, cobros.revisado, cobros.pagador,
+      cobros.documento, cobros.banco, cobros.rechazo,
+    ],
+  )
 
   await client.query('commit')
 

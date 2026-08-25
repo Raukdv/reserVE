@@ -19,7 +19,8 @@
     "stripe:test": "node scripts/test-stripe.mjs",
     "stripe:reconcile": "node scripts/reconcile-stripe.mjs",
     "env:check": "node scripts/check-env.mjs",
-    "seed:revenue": "node --env-file=.env.local scripts/seed-revenue.mjs"
+    "seed:revenue": "node --env-file=.env.local scripts/seed-revenue.mjs",
+    "seed:units": "node --env-file=.env.local scripts/seed-units.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
