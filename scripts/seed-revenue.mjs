@@ -6,15 +6,30 @@
  *
  * ## Qué monta
  *
- * Julio, agosto y septiembre de 2026 repartidos entre las cinco unidades, para
- * que **Reservas**, **Pagos** e **Ingresos** tengan las tres su caso completo:
+ * Unas cuatrocientas estadías repartidas entre las cinco unidades a lo largo de
+ * doce meses, para que **Reservas**, **Pagos** e **Ingresos** tengan las tres su
+ * caso completo:
  *
  * - **Reservas** — los siete estados: completadas, una hospedada ahora mismo,
  *   confirmadas por venir, pendientes de pago, canceladas, un no-show y una
  *   expirada.
  * - **Pagos** — la bandeja de verificación con comprobantes reportados por el
  *   huésped, uno rechazado con su motivo, y las devoluciones.
- * - **Ingresos** — dos meses cerrados con cifras y canales de sobra.
+ * - **Ingresos** — doce meses con estacionalidad: diciembre por encima de los
+ *   veintidós mil, mayo en torno a los catorce.
+ *
+ * Van en dos partes. El **histórico** lo genera `generarHistorico()` con
+ * aleatorio de semilla fija, así que el mismo comando produce siempre los mismos
+ * datos y una cifra que se comente sigue siendo cierta mañana. Encima va una
+ * lista **escrita a mano** con los casos que hay que poder mirar uno a uno; el
+ * generador la esquiva en vez de cederle el mes entero, que era lo que dejaba
+ * julio y agosto con una cuarta parte de las estadías del resto.
+ *
+ * ## Tarda
+ *
+ * Unos cuatro minutos: inserta fila a fila y son más de mil idas y vueltas a
+ * Supabase. Se arreglaría con inserciones por lotes; hoy no compensa, porque una
+ * siembra se corre de tarde en tarde.
  *
  * Los cobros en bolívares se guardan en VES con su tasa congelada, como en
  * producción: son los que enseñan el importe bimoneda.
@@ -60,8 +75,80 @@ const client = new Client({
   ssl: { rejectUnauthorized: false },
 })
 
-/** Tasa BCV plausible de cada mes. Se congela en la reserva, como en producción. */
-const TASA = { '2026-07': 742.18, '2026-08': 779.95, '2026-09': 791.4 }
+/**
+ * Tasa BCV plausible de cada mes. Se congela en la reserva, como en producción.
+ *
+ * La progresión no es adorno: el bolívar se devalúa sobre un 4 % al mes, así que
+ * una estadía de hace un año lleva una tasa muy distinta a la de hoy. Con una
+ * tasa plana, los importes en bolívares del histórico saldrían absurdos y no se
+ * vería lo que de verdad pasa al mirar una reserva vieja.
+ */
+const TASA = {
+  '2025-09': 452.6, '2025-10': 476.3, '2025-11': 500.1, '2025-12': 525.4,
+  '2026-01': 551.9, '2026-02': 579.8, '2026-03': 609.2, '2026-04': 640.1,
+  '2026-05': 672.6, '2026-06': 706.8, '2026-07': 742.18, '2026-08': 779.95,
+  '2026-09': 791.4,
+}
+
+/**
+ * Demanda por mes, de 0 a 1. Manda cuántos huecos quedan entre estadías.
+ *
+ * Temporada alta en vacaciones escolares y fiestas —diciembre, enero, agosto—,
+ * Semana Santa en abril, y el valle en mayo y junio. Sin esto todos los meses
+ * salen iguales y la gráfica de ingresos es una meseta que no enseña nada.
+ */
+const DEMANDA = {
+  1: 0.85, 2: 0.55, 3: 0.5, 4: 0.75, 5: 0.35, 6: 0.4,
+  7: 0.8, 8: 0.9, 9: 0.45, 10: 0.5, 11: 0.55, 12: 0.95,
+}
+
+/** Meses completos de histórico que se generan hacia atrás. */
+const MESES_HISTORICO = 10
+
+/**
+ * Aleatorio con semilla fija.
+ *
+ * `Math.random()` daría un panel distinto en cada siembra, y entonces cualquier
+ * cifra que se comente —«julio da 5.670»— deja de ser cierta al día siguiente.
+ * Con semilla, el mismo comando produce siempre los mismos datos.
+ */
+function aleatorio(semilla) {
+  let a = semilla
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const NOMBRES = [
+  'María', 'José', 'Carmen', 'Luis', 'Ana', 'Carlos', 'Rosa', 'Miguel',
+  'Gabriela', 'Rafael', 'Daniela', 'Andrés', 'Patricia', 'Jesús', 'Lucía',
+  'Manuel', 'Adriana', 'Francisco', 'Valentina', 'Ricardo',
+]
+
+const APELLIDOS = [
+  'González', 'Rodríguez', 'Pérez', 'Hernández', 'Ramírez', 'Blanco',
+  'Contreras', 'Medina', 'Guerrero', 'Escalona', 'Márquez', 'Bolívar',
+  'Camacho', 'Fuentes', 'Ledezma', 'Salazar', 'Zambrano', 'Piñango',
+]
+
+/** Canales, con el peso que tienen de verdad en una posada venezolana. */
+const CANALES = [
+  ['pago_movil', 26], ['transferencia', 22], ['zelle', 20],
+  ['efectivo', 14], ['binance', 10], ['usdt', 8],
+]
+
+const canalPesado = (r) => {
+  let n = r() * CANALES.reduce((s, [, peso]) => s + peso, 0)
+  for (const [canal, peso] of CANALES) {
+    n -= peso
+    if (n <= 0) return canal
+  }
+  return 'zelle'
+}
 
 /** Métodos que se cobran en bolívares. El resto van en divisas. */
 const EN_BOLIVARES = new Set(['pago_movil', 'c2p', 'transferencia'])
@@ -149,16 +236,101 @@ const ESTADIAS = [
   },
 ]
 
-const mesDe = (iso) => iso.slice(0, 7)
+const mesDe = (fecha) => fecha.slice(0, 7)
+const iso = (d) => d.toISOString().slice(0, 10)
 
 /**
  * Cuándo se cobró: el anticipo unos días antes de entrar, el saldo al llegar.
- * Limitado al día 1 del mes de la entrada — ver la nota de arriba.
+ *
+ * Limitado al día 1 del mes de la entrada. `revenue_by_month()` agrupa por fecha
+ * de cobro, que es lo correcto —el dinero entró cuando entró—, y con la
+ * antelación de verdad casi todo el mes se contaba en el anterior.
  */
 const cobradoEl = (entrada, i) => {
   const d = new Date(`${entrada}T12:00:00Z`)
   if (i === 0) d.setUTCDate(Math.max(d.getUTCDate() - 5, 1))
   return d.toISOString()
+}
+const masDias = (d, n) => {
+  const c = new Date(d)
+  c.setUTCDate(c.getUTCDate() + n)
+  return c
+}
+
+/**
+ * Genera el histórico: los meses anteriores a la ventana escrita a mano.
+ *
+ * Recorre **cada unidad de principio a fin del periodo**, no mes a mes. Avanzar
+ * en el tiempo dentro de una unidad garantiza por construcción que sus estadías
+ * no se solapen, que es lo que el `EXCLUDE` de `unit_holds` rechazaría, y deja
+ * que una estadía cruce de mes sin caer en el 31 de septiembre.
+ *
+ * El hueco entre una salida y la siguiente entrada sale de la demanda del mes:
+ * en diciembre casi ninguno, en mayo hasta cinco días de habitación vacía. Sin
+ * eso todos los meses rinden igual y la gráfica es una meseta.
+ *
+ * Todas salen cobradas salvo una de cada doce, que se cancela con devolución, y
+ * una de cada quince, que se queda a medio pagar. Sin esos casos el histórico
+ * queda demasiado limpio para servir de prueba.
+ */
+function generarHistorico(slugs, desde, hasta, ocupadas) {
+  const r = aleatorio(20260825)
+  const estadias = []
+
+  for (const slug of slugs) {
+    // Lo que ya ocupa esa unidad según la lista escrita a mano, ordenado. Solo
+    // las retenciones vivas: una cancelada no reserva nada.
+    const tomadas = (ocupadas.get(slug) ?? []).sort((a, b) => a.in.localeCompare(b.in))
+
+    let cursor = masDias(desde, Math.floor(r() * 4))
+
+    while (cursor < hasta) {
+      const noches = 2 + Math.floor(r() * 4)
+      let salida = masDias(cursor, noches)
+      if (salida > hasta) break
+
+      /*
+        Si la estadía propuesta pisa una de las escritas a mano, se salta al
+        final de esa y se vuelve a intentar.
+
+        Hace falta desde que el generador cubre también julio y agosto. Antes
+        paraba antes de esos meses, y entonces quedaban con una cuarta parte de
+        las estadías del resto: la gráfica enseñaba un desplome en plena
+        temporada alta, que es lo contrario de lo que pasa.
+      */
+      const choque = tomadas.find((t) => iso(cursor) < t.out && t.in < iso(salida))
+      if (choque) {
+        cursor = masDias(new Date(`${choque.out}T00:00:00Z`), Math.floor(r() * 2))
+        continue
+      }
+
+      const nombre = `${NOMBRES[Math.floor(r() * NOMBRES.length)]} ${
+        APELLIDOS[Math.floor(r() * APELLIDOS.length)]}`
+
+      const suerte = r()
+      const cancelada = suerte < 1 / 12
+      const aMedias = !cancelada && suerte < 1 / 12 + 1 / 15
+
+      estadias.push({
+        unidad: slug,
+        in: iso(cursor),
+        out: iso(salida),
+        huesped: nombre,
+        doc: `V-${10_000_000 + Math.floor(r() * 19_000_000)}`,
+        tel: `+58${["412", "414", "424", "416"][Math.floor(r() * 4)]}${
+          String(1_000_000 + Math.floor(r() * 8_999_999))}`,
+        estado: cancelada ? "cancelled" : undefined,
+        fraccion: aMedias ? 0.3 : 1,
+        canal: canalPesado(r),
+        reembolsa: cancelada ? (r() < 0.5 ? 1 : 0.5) : 0,
+      })
+
+      const hueco = Math.round((1 - DEMANDA[salida.getUTCMonth() + 1]) * 7)
+      cursor = masDias(salida, Math.floor(r() * (hueco + 1)))
+    }
+  }
+
+  return estadias
 }
 
 /** Normaliza las dos formas de escribir un pago. */
@@ -208,13 +380,57 @@ try {
     process.exit(1)
   }
 
+  /*
+    El histórico va delante de lo escrito a mano.
+
+    Las estadías generadas ocupan los diez meses anteriores; las escritas a mano
+    cubren julio en adelante, que es donde viven los casos que hay que poder
+    mirar uno a uno —la bandeja de verificación, el no-show, el rechazado—. No
+    se pisan porque no comparten meses.
+  */
+  const inicioMes = new Date(`${hoy.slice(0, 7)}-01T00:00:00Z`)
+  const desde = new Date(
+    Date.UTC(inicioMes.getUTCFullYear(), inicioMes.getUTCMonth() - MESES_HISTORICO - 1, 1),
+  )
+  // Hasta hoy. El generador cubre también el mes en curso y el anterior, y
+  // esquiva las estadías escritas a mano en vez de cederles el mes entero.
+  const hasta = new Date(`${hoy}T00:00:00Z`)
+
+  // Lo que la lista a mano ya ocupa, por unidad. Solo las retenciones vivas:
+  // una cancelada, una expirada o un no-show no reservan nada.
+  const ocupadas = new Map()
+  for (const e of ESTADIAS) {
+    if (['cancelled', 'expired', 'no_show'].includes(e.estado)) continue
+    if (!ocupadas.has(e.unidad)) ocupadas.set(e.unidad, [])
+    ocupadas.get(e.unidad).push({ in: e.in, out: e.out })
+  }
+
+  const todas = [
+    ...generarHistorico([...porSlug.keys()], desde, hasta, ocupadas),
+    ...ESTADIAS,
+  ]
+
   await client.query('begin')
 
-  for (const [n, e] of ESTADIAS.entries()) {
+  for (const [n, e] of todas.entries()) {
     const unidad = porSlug.get(e.unidad)
     const noches = (new Date(e.out) - new Date(e.in)) / 86_400_000
     const subtotal = Number(unidad.base_price_usd) * noches
     const tasa = TASA[mesDe(e.in)]
+
+    /*
+      Las escritas a mano traen sus pagos exactos; las generadas traen la
+      fracción cobrada y el canal, y el importe sale del precio de la unidad.
+
+      Se resuelve aquí y no en el generador porque allí no se conoce el precio:
+      el generador decide el calendario, la base decide cuánto vale la noche.
+    */
+    const pagos = e.pagos ?? [[e.canal, Math.round(subtotal * e.fraccion * 100) / 100]]
+    const devuelto =
+      e.devuelto ??
+      (e.reembolsa > 0
+        ? [e.canal, Math.round(subtotal * e.fraccion * e.reembolsa * 100) / 100]
+        : null)
 
     // El estado sale de las fechas salvo que se fuerce: así el seed no envejece
     // mal y «hospedado ahora mismo» sigue siéndolo mañana.
@@ -262,7 +478,7 @@ try {
       ],
     )
 
-    for (const [i, crudo] of e.pagos.entries()) {
+    for (const [i, crudo] of pagos.entries()) {
       const p = comoPago(crudo)
       const bolivares = EN_BOLIVARES.has(p.metodo)
       const banco = BANCOS[(n + i) % BANCOS.length]
@@ -298,8 +514,8 @@ try {
       )
     }
 
-    if (e.devuelto) {
-      const [metodo, importe] = e.devuelto
+    if (devuelto) {
+      const [metodo, importe] = devuelto
       await client.query(
         `insert into payments (
            booking_id, kind, method, status, currency, amount, amount_usd,
@@ -313,7 +529,10 @@ try {
 
   await client.query('commit')
 
-  console.log(`sembradas ${ESTADIAS.length} reservas de prueba\n`)
+  console.log(
+    `sembradas ${todas.length} reservas de prueba ` +
+    `(${todas.length - ESTADIAS.length} generadas + ${ESTADIAS.length} escritas a mano)\n`,
+  )
 
   console.log('reservas por estado')
   console.table((await client.query(
