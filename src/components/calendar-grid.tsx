@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createBlock, type BlockState } from '@/app/admin/calendario/actions'
 
@@ -8,6 +8,15 @@ import { createBlock, type BlockState } from '@/app/admin/calendario/actions'
 export const DAY_WIDTH = 28
 
 const ROW_HEIGHT = 44
+
+/**
+ * Ancho de la columna de unidades, en píxeles. Es el `w-44` de las filas.
+ *
+ * Se repite aquí como número porque la barra de arriba necesita saber cuánto
+ * mide la rejilla entera, y eso no se puede leer de una clase de Tailwind. Si
+ * cambia `w-44`, cambia esto.
+ */
+const UNIT_COL_WIDTH = 176
 
 export type Bar = {
   unitId: string
@@ -127,6 +136,22 @@ export function CalendarGrid({
   const [anchor, setAnchor] = useState<{ unitId: string; i: number } | null>(null)
   /** Pulsación sobre una selección abierta, sin saber aún si es clic o arrastre. */
   const [espera, setEspera] = useState<{ unitId: string; i: number } | null>(null)
+
+  /** Las dos barras horizontales: la de arriba y la de la rejilla. */
+  const railRef = useRef<HTMLDivElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Iguala el desplazamiento de una barra en la otra.
+   *
+   * La comparación no es una optimización: asignar `scrollLeft` dispara otro
+   * evento `scroll` en la que recibe, que volvería a llamar aquí. Sin la guarda
+   * las dos se llamarían en bucle.
+   */
+  const sync = (desde: HTMLDivElement | null, hacia: HTMLDivElement | null) => {
+    if (!desde || !hacia || hacia.scrollLeft === desde.scrollLeft) return
+    hacia.scrollLeft = desde.scrollLeft
+  }
 
   // Qué columnas de cada unidad están tomadas: seleccionar sobre ellas no debe
   // proponer un bloqueo que la base va a rechazar de todas formas.
@@ -267,7 +292,39 @@ export function CalendarGrid({
         />
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
+      {/*
+        Barra de desplazamiento espejo, encima de la rejilla.
+
+        Con veinte unidades la rejilla mide varias pantallas de alto y la única
+        barra horizontal quedaba al fondo: para mover el calendario a la derecha
+        había que bajar hasta el final, moverlo, y volver a subir.
+
+        Es un contenedor vacío del mismo ancho total que la rejilla, así que el
+        navegador le da su propia barra. Las dos se sincronizan en los dos
+        sentidos; la guarda de igualdad corta la realimentación, porque asignar
+        `scrollLeft` dispara otro `scroll` y sin ella se llamarían en bucle.
+
+        `aria-hidden` porque no aporta nada a quien no ve: es la misma región que
+        ya está debajo, y anunciarla dos veces solo estorba.
+      */}
+      <div
+        ref={railRef}
+        onScroll={() => sync(railRef.current, gridRef.current)}
+        aria-hidden
+        // La altura es explícita porque la barra se dibuja **dentro** de la caja
+        // del contenedor, no debajo. Con el alto del contenido —un píxel— el
+        // navegador la recortaría entera y no habría nada que arrastrar. 18 px
+        // cubren la barra de Windows, que es la más alta de las tres.
+        className="mt-6 h-[18px] overflow-x-auto"
+      >
+        <div style={{ width: `${UNIT_COL_WIDTH + days.length * DAY_WIDTH}px`, height: 1 }} />
+      </div>
+
+      <div
+        ref={gridRef}
+        onScroll={() => sync(gridRef.current, railRef.current)}
+        className="mt-1 overflow-x-auto rounded-2xl border border-ink/10 bg-white"
+      >
         <div
           className="min-w-max"
           onMouseUp={finishDrag}
