@@ -772,6 +772,29 @@ export interface Database {
       current_gap: { Args: Record<string, never>; Returns: number }
       business_today: { Args: Record<string, never>; Returns: string }
       is_staff: { Args: Record<string, never>; Returns: boolean }
+
+      /** Ingreso mensual con devoluciones, impuestos e IGTF separados. Ver 0038. */
+      revenue_by_month: {
+        Args: { p_months?: number }
+        Returns: {
+          month: string
+          charged_usd: number
+          refunded_usd: number
+          tax_usd: number
+          igtf_usd: number
+          net_usd: number
+        }[]
+      }
+      /** Cobros aprobados del mes repartidos por canal. */
+      revenue_by_method: {
+        Args: { p_month: string }
+        Returns: { method: PaymentMethod; amount_usd: number; movimientos: number }[]
+      }
+      /** Noches vendidas sobre disponibles del mes. */
+      occupancy_for_month: {
+        Args: { p_month: string }
+        Returns: { sold: number; available: number; ratio: number }
+      }
       expire_stale_bookings: { Args: Record<string, never>; Returns: number }
       prune_rate_fetch_log: { Args: Record<string, never>; Returns: undefined }
       prune_email_log: { Args: Record<string, never>; Returns: undefined }

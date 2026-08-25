@@ -447,9 +447,50 @@ Respeta `prefers-reduced-motion`: con esa preferencia el giro se anula y la
 página cambia sin animación. La regla vive en `globals.css` y cubre toda la app,
 no solo el libro.
 
-### 4. No hay dónde ver lo que el negocio ha generado
+### ~~4. No hay dónde ver lo que el negocio ha generado~~ — hecha
 
-**Dónde:** falta la sección. Hoy lo más parecido es el resumen de `/admin`.
+Está en `/admin/ingresos`: barras de ingreso por mes, donut de ocupación, barras
+horizontales por canal de cobro y la cifra de lo recaudado para el fisco aparte.
+Sin librería de gráficos, como estaba previsto.
+
+#### La paleta de series se resolvió no necesitándola
+
+El plan pedía «decidir la escala antes de dibujar». Se midió con el validador de
+la guía de visualización, y los tokens de la marca **no sirven como serie**:
+
+```
+#4a5d4e (moss) ↔ #3d6b78 (tide)   ΔE 6.7 normal · 6.4 deutan   FALLA
+```
+
+Por debajo de 15 en visión normal: ni con vista perfecta se distinguen. Habría
+hecho falta inventar pasos más saturados —`#c07a3e` + `#00749b` sí pasan todo—
+y meter dos colores vivos en una paleta que es deliberadamente terrosa.
+
+No hizo falta. La recomendación que ya estaba tomada en `PENDIENTES.md` era que
+**la barra dijera una sola cosa** —lo que se quedó el negocio— y que los
+impuestos fueran una cifra aparte. Con una sola serie no hay pares adyacentes que
+distinguir, y basta `clay` sobre neutro. El donut tampoco necesita dos
+identidades: lo vendido lleva color, lo libre es «el resto» y va en neutro.
+
+Queda anotado por si algún día hace falta de verdad: **los cinco tokens no dan
+una paleta categórica**, y el día que un gráfico necesite dos series hay que
+derivar pasos propios y pasarlos por el validador, no reutilizar `moss` y `tide`.
+
+#### Lo que se añadió sobre el plan
+
+**Meses en negativo.** Basta una devolución registrada en un mes sin cobros para
+que el ingreso salga bajo cero —comprobado: −80,00—. Dibujarlo como barra mínima
+lo haría indistinguible de un mes tranquilo, que es lo contrario de lo que pasó.
+Van en rojo, con el aviso al lado y el signo en la cifra.
+
+**Tabla bajo el gráfico.** Un `aria-label` con seis cifras no se escucha. Los
+mismos números en `<table>`, plegados en un `<details>`.
+
+---
+
+#### El planteamiento original
+
+**Dónde:** faltaba la sección. Lo más parecido era el resumen de `/admin`.
 
 El panel enseña cifras sueltas —pagos por verificar, reservas pendientes,
 confirmadas, tasa— y ninguna serie. El operador no tiene dónde mirar **cuánto ha

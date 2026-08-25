@@ -29,6 +29,7 @@ const DIARIO = [
   { href: '/admin/calendario', label: 'Calendario' },
   { href: '/admin/reservas', label: 'Reservas' },
   { href: '/admin/pagos', label: 'Pagos' },
+  { href: '/admin/ingresos', label: 'Ingresos' },
 ]
 
 const AJUSTE = [
