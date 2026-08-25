@@ -3,7 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { parseRange } from '@/lib/format'
 import { businessToday } from '@/lib/business-date'
 import { BlockDates, type ActiveBlock } from '@/components/block-dates'
-import { CalendarGrid, DAY_WIDTH, type Bar, type Day } from '@/components/calendar-grid'
+import {
+  CalendarGrid,
+  type Bar,
+  type Day,
+  type MonthSpan,
+} from '@/components/calendar-grid'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Calendario' }
@@ -20,6 +25,7 @@ const addDays = (d: Date, n: number) => {
 const dayNum = new Intl.DateTimeFormat('es-VE', { day: 'numeric', timeZone: 'UTC' })
 const dayLetter = new Intl.DateTimeFormat('es-VE', { weekday: 'narrow', timeZone: 'UTC' })
 const monthLabel = new Intl.DateTimeFormat('es-VE', { month: 'long', timeZone: 'UTC' })
+const shortMonth = new Intl.DateTimeFormat('es-VE', { month: 'short', timeZone: 'UTC' })
 
 // Color por naturaleza de la ocupación, no por unidad: el operador escanea la
 // rejilla buscando qué requiere acción frente a qué ya está cerrado.
@@ -133,13 +139,14 @@ export default async function CalendarPage({
     })
     .filter((b) => b.to >= iso(today))
 
-  // Cabeceras de mes: cuántos días del rango caen en cada mes.
-  const monthSpans: { name: string; span: number }[] = []
+  // Cabeceras de mes: cuántos días del rango caen en cada mes. El nombre corto
+  // es para cuando al mes le tocan pocos días en la ventana y el largo no cabe.
+  const monthSpans: MonthSpan[] = []
   for (const d of days) {
     const name = monthLabel.format(d)
     const last = monthSpans[monthSpans.length - 1]
     if (last && last.name === name) last.span++
-    else monthSpans.push({ name, span: 1 })
+    else monthSpans.push({ name, short: shortMonth.format(d), span: 1 })
   }
 
   const todayIso = iso(today)
@@ -190,28 +197,10 @@ export default async function CalendarPage({
 
       <BlockDates units={units ?? []} blocks={blocks} today={todayIso} />
 
-      {/*
-        La fila de meses se queda aquí porque no participa del arrastre; la
-        rejilla pasa a ser cliente para poder dibujar bloqueos sobre ella.
-      */}
-      <div className="mt-6 overflow-x-auto">
-        <div className="flex min-w-max border-b border-ink/10 pb-1">
-          <div className="w-44 shrink-0" />
-          {monthSpans.map((m) => (
-            <div
-              key={m.name}
-              className="border-l border-ink/10 px-2 text-xs text-ink/70 first-letter:uppercase"
-              style={{ width: `${m.span * DAY_WIDTH}px` }}
-            >
-              {m.name}
-            </div>
-          ))}
-        </div>
-      </div>
-
       <CalendarGrid
         units={(units ?? []).map((u) => ({ id: u.id, name: u.name }))}
         days={gridDays}
+        months={monthSpans}
         bars={bars}
         todayIso={todayIso}
       />

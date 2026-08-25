@@ -26,6 +26,9 @@ export type Bar = {
 
 export type Day = { key: string; letter: string; num: string; weekend: boolean }
 
+/** Un mes de la cabecera, con cuántas columnas de la ventana le tocan. */
+export type MonthSpan = { name: string; short: string; span: number }
+
 export type GridUnit = { id: string; name: string }
 
 /**
@@ -90,11 +93,13 @@ function nextDay(iso: string) {
 export function CalendarGrid({
   units,
   days,
+  months,
   bars,
   todayIso,
 }: {
   units: GridUnit[]
   days: Day[]
+  months: MonthSpan[]
   bars: Bar[]
   todayIso: string
 }) {
@@ -219,6 +224,33 @@ export function CalendarGrid({
 
       <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
         <div className="min-w-max" onMouseUp={finishDrag} onMouseLeave={() => setDrag(null)}>
+          {/*
+            La fila de meses va aquí dentro, no encima de la caja.
+
+            Estaba en su propio contenedor con scroll, así que al desplazar la
+            rejilla los meses se quedaban quietos y dejaban de corresponderse
+            con los días. Se entendía al rato, mirando dos veces — que es
+            justamente lo que una cabecera no debe pedir.
+
+            Dentro del mismo `min-w-max` comparten desplazamiento, y el nombre
+            se apoya en el borde izquierdo del mes: el mismo borde marcado que
+            llevan la columna del día 1 y sus celdas más abajo.
+          */}
+          <div className="flex border-b border-ink/8 bg-ink/3">
+            <div className="w-44 shrink-0 border-r border-ink/10" />
+            {months.map((m) => (
+              <div
+                key={m.name}
+                style={{ width: `${m.span * DAY_WIDTH}px` }}
+                className="shrink-0 overflow-hidden border-l border-ink/20 px-1.5 py-1 text-[11px] font-medium text-ink/70 first:border-l-0 first-letter:uppercase"
+                title={m.name}
+              >
+                {/* Con pocos días en la ventana, el nombre largo no cabe. */}
+                {m.span >= 5 ? m.name : m.short}
+              </div>
+            ))}
+          </div>
+
           <div className="flex border-b border-ink/10">
             <div className="w-44 shrink-0 border-r border-ink/10 px-3 py-2 text-xs font-medium text-ink/70">
               Unidad
@@ -227,6 +259,10 @@ export function CalendarGrid({
               <div
                 key={d.key}
                 className={`w-7 shrink-0 py-1 text-center text-[10px] leading-tight ${
+                  // El día 1 hereda el borde del mes: es lo que ata la cabecera
+                  // de arriba con la columna concreta donde empieza.
+                  d.key.endsWith('-01') ? 'border-l border-ink/20' : ''
+                } ${
                   d.key === todayIso
                     ? 'bg-clay/20 font-semibold'
                     : d.weekend
@@ -265,7 +301,12 @@ export function CalendarGrid({
                     ? 'bg-clay/40 ring-2 ring-inset ring-ink/50'
                     : fondo
 
-                  const clase = `w-7 shrink-0 border-r border-ink/5 ${marca}`
+                  // El cambio de mes se marca en toda la altura de la rejilla,
+                  // no solo en la cabecera: es lo que permite saber en qué mes
+                  // cae una barra sin subir la vista hasta arriba.
+                  const inicioDeMes = d.key.endsWith('-01') ? 'border-l border-ink/20' : ''
+
+                  const clase = `w-7 shrink-0 border-r border-ink/5 ${inicioDeMes} ${marca}`
 
                   if (tapMode) {
                     return (
