@@ -65,6 +65,29 @@ Es una invocación por visita, y el plan Hobby incluye 1.000.000 al mes. Con el
 sitio privado no se nota; con tráfico real, sí. Ver `docs/COSTO-CERO.md`,
 regla 3.3.
 
+### Y con la puerta fuera, el código de reserva queda solo
+
+Salió al escribir `docs/funciones/acceso-y-roles.md`. El código es la única
+credencial de la página del huésped, y son **ocho caracteres hexadecimales**:
+
+```sql
+default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8))
+```
+
+32 bits, unos 4.300 millones de combinaciones. Aleatorio de verdad —bytes
+criptográficos, no correlativo— así que nadie adivina un código concreto. Pero
+recorrer el espacio con un script es otra cosa, y hoy `/reserva/[code]` no limita
+intentos.
+
+Mientras la puerta esté puesta no hay exposición. Al retirarla, una de dos:
+
+- **Alargar el código** a 12 caracteres (48 bits). Cambia solo el `default`, y
+  los códigos viejos siguen valiendo porque la columna es de texto.
+- **Limitar los intentos** en la ruta del huésped.
+
+Lo primero es más barato y no depende de infraestructura. Conviene decidirlo en
+el mismo momento que el `matcher`, porque los dos dependen del mismo evento.
+
 ---
 
 ## ~~`BUSINESS_TIMEZONE` — conectada a medias~~ — resuelto en TypeScript
