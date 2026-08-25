@@ -30,17 +30,97 @@ petróleo como únicos colores saturados.
 El color codifica **estado**, nunca identidad. Dos unidades distintas no llevan
 colores distintos; una reserva pendiente y una confirmada, sí.
 
-| Estado | Tono | Criterio |
-|---|---|---|
-| Pendiente de pago | ámbar | **El único que reclama atención**: exige hacer algo |
-| Confirmada | `moss` | Informativo |
-| Hospedado | `tide` | Informativo |
-| Bloqueo manual | `ink/15` | Inerte |
-| Error / rechazo | rojo | Excepcional |
+#### El tono dice qué significa
+
+| Tono | Qué quiere decir |
+|---|---|
+| ámbar | **Reclama atención.** Alguien tiene que hacer algo |
+| `moss` | Salió bien: confirmada, aprobado |
+| `tide` | En curso: hospedado |
+| rojo | Costó dinero o falló: rechazado, no-show |
+| `ink` | Inerte: cerrado, bloqueado, sin novedad |
+
+Es el mismo significado en las tres superficies donde aparece —barras del
+calendario, píldoras de reserva, píldoras de pago—, aunque el tratamiento cambie.
 
 `confirmed` y `checked_in` se separan por **tono**, no por intensidad. Dos
 variantes del mismo verde eran indistinguibles en una barra de 28 px, y oscurecer
 una la ponía a competir con el ámbar.
+
+**El ámbar es de uno solo por pantalla.** Es lo que reclama acción, y si dos
+estados lo llevan ninguno destaca. Por eso «pendiente de pago» de un pago no es
+ámbar: ese ámbar es de «por verificar», que es la bandeja del operador.
+
+#### La forma dice si ocurrió
+
+Añadido después, porque el tono solo no bastaba: cuatro estados cerrados de una
+reserva —completada, cancelada, no-show, expirada— compartían el mismo gris y en
+una lista eran indistinguibles.
+
+| Forma | Qué quiere decir |
+|---|---|
+| Relleno | Ocurrió |
+| Contorno | Se deshizo, o todavía no ha pasado |
+| Contorno punteado | Nunca llegó a ser |
+
+Es lo que hace que se distingan **también en blanco y negro**, o para quien no
+separa bien los tonos. El color solo no lo garantiza.
+
+#### Reservas
+
+| Estado | Tratamiento |
+|---|---|
+| Pendiente de pago | relleno ámbar |
+| Confirmada | relleno `moss` |
+| Hospedado | relleno `tide` |
+| Completada | relleno `ink/10` |
+| Cancelada | contorno `ink/30` |
+| No se presentó | relleno rojo — es la que costó dinero |
+| Expirada | contorno punteado |
+
+#### Pagos
+
+| Estado | Tratamiento |
+|---|---|
+| Pendiente | contorno `ink/40`, tinta plena — aún no ha entrado |
+| Por verificar | relleno ámbar |
+| Aprobado | relleno `moss` |
+| Rechazado | relleno rojo |
+| Reembolsado | relleno `ink/10` — salió, y ya lleva el signo menos |
+
+#### En el calendario no hay contorno
+
+Las barras son macizas. Una barra contorneada de 28 px de ancho no se lee, y allí
+la distinción que importa es otra: qué está ocupado. El bloqueo manual usa
+`ink/15` porque es ocupación sin reserva detrás.
+
+#### Contraste, medido
+
+Los pares se comprueban contra el 4,5:1 de la AA antes de entrar. El más justo en
+uso es `tide` sobre `tide/15`, en 4,78:1.
+
+Ahí murió una idea: «expirada» iba a llevar el texto más tenue que «cancelada»,
+pero `ink/45` sobre blanco da **2,99:1** y no llega. Se quedó al 60 % como las
+demás, y lo que las separa es el punteado — que era el punto de todas formas.
+
+#### Dónde vive
+
+| Qué | Dónde |
+|---|---|
+| Estados de reserva | `src/lib/booking-status.ts` |
+| Estados de pago | `src/lib/payment-status.ts`, con `PILL_SHAPE` |
+| Barras del calendario | `TONE` en `src/app/admin/calendario/page.tsx` |
+
+Los dos primeros estaban copiados en cada página que los usaba —tres copias los
+de reserva, dos los de pago— y habían divergido en silencio: el resumen no tenía
+`no_show` y enseñaba `no_show` en crudo, y el mismo gris era `ink/60` en un sitio
+e `ink/70` en otro. Una tabla de presentación duplicada acaba divergiendo
+siempre; el operador ve cosas distintas según por dónde entre.
+
+**La página del huésped es la excepción, y a propósito.** Tiene su propio mapa
+con otras etiquetas —«No se registró la llegada» en vez de «No se presentó»— y
+una frase explicativa debajo. Ahí los estados cerrados sí comparten gris: el
+huésped ve una sola reserva, no una lista donde haya que distinguirlas.
 
 ### Escala de tinta
 
@@ -81,6 +161,7 @@ border-ink/20   bordes discontinuos de estado vacío
 border-ink/40   borde al enfocar
 
 bg-ink          botón principal
+bg-ink/10       píldoras de estado inerte — completada, reembolsada
 bg-ink/8        píldoras y fondos sutiles
 bg-ink/6        píldoras de método de pago
 bg-ink/5        superficies muy tenues
@@ -269,10 +350,21 @@ Siempre dicen qué falta y, cuando existe, enlazan a la acción que lo resuelve.
 ### Píldoras de estado
 
 ```
-rounded-full px-2.5 py-1 text-xs
+inline-block rounded-full px-2.5 py-1 text-xs
 ```
 
-Con el color al 15 % de fondo y el tono pleno en el texto: `bg-moss/15 text-moss`.
+Con el color al 10–15 % de fondo y el tono pleno en el texto: `bg-moss/15
+text-moss`. La forma vive en `PILL_SHAPE`, junto al mapa de estados, para que los
+sitios que la pintan no acaben cada uno con su redondeo.
+
+**Todas llevan borde, aunque sea transparente.** Desde que hay píldoras
+contorneadas —ver [Códigos de estado](#códigos-de-estado)—, una rellena sin borde
+sale dos píxeles más baja, y en una tabla eso se ve como una fila desalineada:
+
+```
+border border-transparent bg-moss/15 text-moss   ← rellena
+border border-ink/30 text-ink/60                 ← contorneada
+```
 
 ---
 
@@ -592,11 +684,15 @@ compatible con costo cero.
 
 ### El ámbar y el rojo no están en la paleta
 
-64 usos de `amber-*` y `red-*` de la paleta por defecto de Tailwind, frente a
-cinco tokens propios. Los dos estados más importantes de la app —lo que exige
-acción y lo que falló— son los únicos sin token.
+Decenas de usos de `amber-*` y `red-*` de la paleta por defecto de Tailwind,
+frente a cinco tokens propios. Los dos estados más importantes de la app —lo que
+exige acción y lo que falló— son los únicos sin token.
 
 Deberían ser `--color-alert` y `--color-danger`, o equivalentes.
+
+El sistema de estados les dio un papel fijo —ámbar reclama acción, rojo costó
+dinero o falló— así que ya no son colores sueltos que aparecen donde toca: son
+dos roles del lenguaje, y los únicos que no se pueden cambiar desde un sitio.
 
 ### ~~La escala de tinta no tiene peldaños definidos~~ — resuelto
 
