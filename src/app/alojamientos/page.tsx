@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getRateSummary } from '@/lib/rates'
-import { price, usd, dateLabel } from '@/lib/format'
+import { price, usd, dateLabel, percent } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
@@ -146,7 +146,7 @@ export default async function UnitsPage({
                             </p>
                           )}
                           <p className="mt-3 text-xs text-ink/70">
-                            Anticipo {Math.round(quote.deposit_ratio * 100)}%:{' '}
+                            Anticipo {percent(quote.deposit_ratio)}:{' '}
                             {usd(quote.deposit_usd)}
                           </p>
                         </>

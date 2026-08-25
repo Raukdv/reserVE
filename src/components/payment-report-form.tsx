@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { reportPayment, type ReportState } from '@/app/reserva/[code]/actions'
 import { METHODS, GUEST_METHODS } from '@/lib/payment-methods'
 import { compressImage, kb } from '@/lib/compress-image'
-import { usd } from '@/lib/format'
+import { usd, percent } from '@/lib/format'
 import { DocumentInput } from '@/components/document-input'
 import type { PaymentMethod } from '@/types/database'
 
@@ -123,7 +123,7 @@ export function PaymentReportForm({
           />
           {igtfUsd > 0 && (
             <span className="mt-1 block text-xs text-ink/60">
-              Incluye {usd(igtfUsd)} de IGTF ({(igtfRate * 100).toFixed(1).replace('.', ',')} %)
+              Incluye {usd(igtfUsd)} de IGTF ({percent(igtfRate, 1)})
               por pagar en divisas. En bolívares no se aplica.
             </span>
           )}

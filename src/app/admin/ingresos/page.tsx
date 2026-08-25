@@ -1,5 +1,5 @@
 import { getRevenueSummary } from '@/lib/revenue'
-import { usd } from '@/lib/format'
+import { usd, percent } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
 import { RevenueChart } from '@/components/revenue-chart'
 import { OccupancyDonut } from '@/components/occupancy-donut'
@@ -32,9 +32,12 @@ export default async function RevenuePage() {
   const current = months[months.length - 1]
   const previous = months[months.length - 2]
 
+  // Fracción, no porcentaje: percent() se encarga de multiplicar y de darle el
+  // formato de la interfaz. Solo el signo positivo va a mano, porque Intl no lo
+  // pone y aquí dice si el mes fue mejor o peor.
   const change =
     previous && previous.net > 0
-      ? Math.round(((current.net - previous.net) / previous.net) * 100)
+      ? (current.net - previous.net) / previous.net
       : null
 
   const methodTotal = byMethod.reduce((sum, m) => sum + m.amount, 0)
@@ -53,7 +56,7 @@ export default async function RevenuePage() {
           {change !== null && (
             <p className="text-xs text-ink/70">
               {change >= 0 ? '+' : ''}
-              {change} % respecto al mes anterior
+              {percent(change)} respecto al mes anterior
             </p>
           )}
         </div>

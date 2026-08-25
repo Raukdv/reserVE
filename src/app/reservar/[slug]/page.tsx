@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { usd, ves, dateLabel } from '@/lib/format'
+import { usd, ves, dateLabel, percent } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { UnitThumb } from '@/components/unit-thumb'
 import { unitCovers } from '@/lib/media'
@@ -185,7 +185,7 @@ export default async function CheckoutPage({
                   <div className="rounded-xl border border-ink/15 p-4 text-xs leading-relaxed text-ink/70">
                     Pagando en <strong className="font-medium text-ink">divisas</strong>{' '}
                     —Zelle, PayPal, Binance, USDT o efectivo— se añade el IGTF del{' '}
-                    {(quote.igtf_rate * 100).toFixed(1).replace('.', ',')} %:{' '}
+                    {percent(quote.igtf_rate, 1)}:{' '}
                     <strong className="font-medium text-ink">
                       {usd(quote.total_divisas_usd)}
                     </strong>{' '}
@@ -198,7 +198,7 @@ export default async function CheckoutPage({
 
                 <div className="rounded-xl bg-sand p-4 text-xs leading-relaxed text-ink/70">
                   Para confirmar se paga un anticipo del{' '}
-                  {Math.round(quote.deposit_ratio * 100)}%:{' '}
+                  {percent(quote.deposit_ratio)}:{' '}
                   <strong className="font-medium text-ink">{usd(quote.deposit_usd)}</strong>.
                   El resto se cancela al llegar.
                 </div>

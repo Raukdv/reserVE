@@ -1,4 +1,4 @@
-import { usd, ves } from '@/lib/format'
+import { usd, ves, percent } from '@/lib/format'
 
 /**
  * Estado de cobro de una reserva.
@@ -123,14 +123,14 @@ export function CollectionSummary({
         <p className="mt-2.5 text-xs text-ink/70">
           {depositMet ? (
             <>
-              Anticipo del {Math.round(depositRatio * 100)}% ({usd(depositUsd)}){' '}
+              Anticipo del {percent(depositRatio)} ({usd(depositUsd)}){' '}
               <span className="text-moss">cubierto</span>
               {remaining > 0 && <> · faltan {usd(remaining)} para el total</>}
             </>
           ) : (
             <>
               Faltan {usd(Math.max(0, depositUsd - paidUsd))} para cubrir el anticipo del{' '}
-              {Math.round(depositRatio * 100)}% y poder confirmar
+              {percent(depositRatio)} y poder confirmar
               {claimedUsd > 0 && <> · hay {usd(claimedUsd)} sin verificar</>}
             </>
           )}

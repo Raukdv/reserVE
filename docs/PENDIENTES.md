@@ -415,12 +415,32 @@ Por defecto `V`, que es el caso mayoritario.
 
 ---
 
-## Ayuda de porcentaje en `format.ts`
+## ~~Ayuda de porcentaje en `format.ts`~~ — hecha
 
-El `* 100` para mostrar fracciones como porcentaje está suelto en cuatro sitios
-—checkout, ficha del alojamiento, página del huésped y listado—. Es solo
-presentación, así que no hay riesgo de cobrar mal, pero conviene un `percent()`
-junto a `usd()` y `ves()`.
+`percent()` está junto a `usd()` y `ves()`. Recibe la **fracción**, no el número
+ya multiplicado, que es lo que hay en la base.
+
+Y no era solo duplicación: eran más de cuatro sitios, y el `× 100` suelto había
+derivado en **tres formatos para lo mismo**.
+
+```
+Math.round(x * 100) + '%'                        → 30%
+(x * 100).toFixed(1) + '%'                       → 14.5%     ← punto inglés
+(x * 100).toFixed(1).replace('.', ',') + ' %'    → 3,0 %
+```
+
+El segundo metía un separador decimal **inglés** en una interfaz en español,
+justo al lado de importes que sí usan coma. Se veía en la brecha del paralelo del
+resumen. `Intl` con `es-VE` arregla las dos cosas y además se come los ceros
+finales —`30%`, no `30,0%`—, que es como se escribe.
+
+Once sitios convertidos. Quedan fuera a propósito:
+
+- **Valores por defecto de formulario**, que necesitan el número pelado.
+- **Anchuras y trazos** —`width: 45%`, `stroke-dasharray`—, que son geometría y
+  no texto.
+- **Cadenas de diagnóstico de `bcv.ts`**, que acaban en `rate_fetch_log` y las
+  lee quien depura: una coma decimal ahí solo estorba a un `grep`.
 
 Recordatorio de por qué la base guarda fracción y la interfaz muestra porcentaje:
 en la base es un multiplicador (`total_usd * deposit_ratio`) y la restricción

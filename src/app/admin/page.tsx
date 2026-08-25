@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { bookingStatus } from '@/lib/booking-status'
 import { getRateSummary } from '@/lib/rates'
-import { usd, dateLabel } from '@/lib/format'
+import { usd, dateLabel, percent } from '@/lib/format'
 import { businessToday, daysBetween } from '@/lib/business-date'
 import { RefreshRate } from '@/components/refresh-rate'
 
@@ -162,7 +162,7 @@ export default async function AdminHome() {
         */}
         <Stat
           label="Brecha paralelo"
-          value={rates.gap === null ? '—' : `${(rates.gap * 100).toFixed(1)}%`}
+          value={rates.gap === null ? '—' : percent(rates.gap, 1)}
           hint={
             rates.parallel
               ? `informal ${rates.parallel.toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
@@ -176,7 +176,7 @@ export default async function AdminHome() {
       {rates.gap !== null && rates.gap > 0.05 && (
         <p className="mt-4 text-xs text-ink/70">
           Los cobros en bolívares van a tasa BCV por obligación legal, así que la brecha
-          del {(rates.gap * 100).toFixed(1)}% la absorben tus tarifas en USD. Si te
+          del {percent(rates.gap, 1)} la absorben tus tarifas en USD. Si te
           aprieta, el ajuste correcto es el precio de lista — no la tasa.
         </p>
       )}

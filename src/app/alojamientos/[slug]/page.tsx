@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { usd, ves, dateLabel } from '@/lib/format'
+import { usd, ves, dateLabel, percent } from '@/lib/format'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { SearchDates } from '@/components/search-dates'
 import { UnitThumb } from '@/components/unit-thumb'
@@ -291,7 +291,7 @@ export default async function UnitPage({
 
                   <div className="mt-4 rounded-xl bg-sand p-4 text-xs text-ink/70">
                     Para confirmar se paga un anticipo del{' '}
-                    {Math.round(quote.deposit_ratio * 100)}%:{' '}
+                    {percent(quote.deposit_ratio)}:{' '}
                     <strong className="font-medium text-ink">{usd(quote.deposit_usd)}</strong>.
                     El resto se cancela al llegar.
                   </div>

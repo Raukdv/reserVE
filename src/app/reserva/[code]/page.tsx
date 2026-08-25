@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PILL_SHAPE, paymentStatus } from '@/lib/payment-status'
 import { BUSINESS_TZ } from '@/lib/timezone'
-import { usd, ves, dateLabel } from '@/lib/format'
+import { usd, ves, dateLabel, percent } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
 import { SiteHeader, SiteFooter } from '@/components/site-chrome'
 import { PaymentReportForm } from '@/components/payment-report-form'
@@ -203,7 +203,7 @@ export default async function BookingPage({
             </div>
             <div className="flex justify-between border-t border-ink/10 pt-3">
               <dt className="text-ink/70">
-                Anticipo para confirmar ({Math.round(booking.deposit_ratio * 100)}%)
+                Anticipo para confirmar ({percent(booking.deposit_ratio)})
               </dt>
               <dd className="font-medium">{usd(booking.deposit_usd)}</dd>
             </div>
