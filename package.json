@@ -18,7 +18,8 @@
     "rate:fetch": "node scripts/fetch-bcv-rate.mjs",
     "stripe:test": "node scripts/test-stripe.mjs",
     "stripe:reconcile": "node scripts/reconcile-stripe.mjs",
-    "env:check": "node scripts/check-env.mjs"
+    "env:check": "node scripts/check-env.mjs",
+    "seed:revenue": "node --env-file=.env.local scripts/seed-revenue.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
