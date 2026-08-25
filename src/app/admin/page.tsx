@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { bookingStatus } from '@/lib/booking-status'
 import { getRateSummary } from '@/lib/rates'
 import { usd, dateLabel } from '@/lib/format'
 import { businessToday, daysBetween } from '@/lib/business-date'
@@ -310,17 +311,7 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-6 text-center text-sm text-ink/60">{children}</p>
 }
 
-// Mismos tonos que el calendario, en versión suave para texto sobre fondo claro.
-const PILL: Record<string, { label: string; tone: string }> = {
-  pending: { label: 'Pendiente', tone: 'bg-amber-100 text-amber-900' },
-  confirmed: { label: 'Confirmada', tone: 'bg-moss/15 text-moss' },
-  checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
-  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
-  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
-  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
-}
-
 function StatusPill({ status }: { status: string }) {
-  const pill = PILL[status] ?? { label: status, tone: 'bg-ink/8 text-ink/70' }
+  const pill = bookingStatus(status)
   return <span className={`rounded-full px-2.5 py-1 text-xs ${pill.tone}`}>{pill.label}</span>
 }

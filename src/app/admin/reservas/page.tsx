@@ -1,5 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import {
+  BOOKING_STATUS,
+  BOOKING_STATUS_ORDER,
+  bookingStatus,
+} from '@/lib/booking-status'
 import { usd, dateLabel } from '@/lib/format'
 import type { BookingStatus } from '@/types/database'
 
@@ -16,15 +21,6 @@ const PER_PAGE = 25
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 
-const STATUS: Record<BookingStatus, { label: string; tone: string }> = {
-  pending: { label: 'Pendiente', tone: 'bg-amber-100 text-amber-900' },
-  confirmed: { label: 'Confirmada', tone: 'bg-moss/15 text-moss' },
-  checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
-  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
-  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
-  no_show: { label: 'No se presentó', tone: 'bg-ink/8 text-ink/70' },
-  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
-}
 
 const field =
   'w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-ink/40'
@@ -44,7 +40,7 @@ export default async function BookingsPage({
   // llega por la URL no puede ser cualquier cosa.
   const estadoRaw = one('estado')
   const estado =
-    estadoRaw && estadoRaw in STATUS ? (estadoRaw as BookingStatus) : undefined
+    estadoRaw && estadoRaw in BOOKING_STATUS ? (estadoRaw as BookingStatus) : undefined
 
   const unidad = one('unidad')
   const desde = ISO.test(one('desde') ?? '') ? one('desde')! : undefined
@@ -143,9 +139,9 @@ export default async function BookingsPage({
           <span className="mb-1 block text-xs font-medium text-ink">Estado</span>
           <select name="estado" defaultValue={estado ?? ''} className={field}>
             <option value="">Todos</option>
-            {Object.entries(STATUS).map(([value, { label }]) => (
+            {BOOKING_STATUS_ORDER.map((value) => (
               <option key={value} value={value}>
-                {label}
+                {BOOKING_STATUS[value].label}
               </option>
             ))}
           </select>
@@ -202,7 +198,7 @@ export default async function BookingsPage({
               <tbody className="divide-y divide-ink/8">
                 {bookings.map((b) => {
                   const unit = Array.isArray(b.units) ? b.units[0] : b.units
-                  const pill = STATUS[b.status]
+                  const pill = bookingStatus(b.status)
 
                   return (
                     <tr key={b.code} className="cursor-pointer hover:bg-sand/60">

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { bookingStatus } from '@/lib/booking-status'
 import { BUSINESS_TZ } from '@/lib/timezone'
 import { publicEnv } from '@/lib/env'
 import { usd, ves, dateLabel } from '@/lib/format'
@@ -19,16 +20,6 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   return { title: `Reserva ${code.toUpperCase()}` }
 }
 
-// Mismos tonos que el calendario y el resumen.
-const PILL: Record<BookingStatus, { label: string; tone: string }> = {
-  pending: { label: 'Pendiente de pago', tone: 'bg-amber-100 text-amber-900' },
-  confirmed: { label: 'Confirmada', tone: 'bg-moss/15 text-moss' },
-  checked_in: { label: 'Hospedado', tone: 'bg-tide/15 text-tide' },
-  completed: { label: 'Completada', tone: 'bg-ink/8 text-ink/70' },
-  cancelled: { label: 'Cancelada', tone: 'bg-ink/8 text-ink/70' },
-  no_show: { label: 'No se presentó', tone: 'bg-ink/8 text-ink/70' },
-  expired: { label: 'Expirada', tone: 'bg-ink/8 text-ink/70' },
-}
 
 const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: string }> = {
   pending: { label: 'Pendiente', tone: 'text-ink/60' },
@@ -95,7 +86,7 @@ export default async function BookingDetail({
       ? collection.depositUsd - collection.paidUsd
       : Math.max(0, collection.totalUsd - collection.paidUsd)
 
-  const pill = PILL[booking.status]
+  const pill = bookingStatus(booking.status)
   const guestUrl = `${publicEnv.NEXT_PUBLIC_SITE_URL}/reserva/${booking.code}`
 
   // Qué tocaría devolver si se cancelara ahora. Lo calcula la base, la misma
