@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { paymentStatus } from '@/lib/payment-status'
 import { bookingStatus } from '@/lib/booking-status'
 import { BUSINESS_TZ } from '@/lib/timezone'
 import { publicEnv } from '@/lib/env'
@@ -11,7 +12,7 @@ import { BookingActions, type RefundPreview } from '@/components/booking-actions
 import { CollectionSummary, collectionState } from '@/components/collection-summary'
 import { ArrowLeft, Eye, MessageCircle } from 'lucide-react'
 import { LinkButton } from '@/components/link-button'
-import type { BookingStatus, PaymentMethod, PaymentStatus } from '@/types/database'
+import type { PaymentMethod } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,13 +22,6 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
 }
 
 
-const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: string }> = {
-  pending: { label: 'Pendiente', tone: 'text-ink/60' },
-  verifying: { label: 'Por verificar', tone: 'text-amber-700' },
-  approved: { label: 'Aprobado', tone: 'text-moss' },
-  rejected: { label: 'Rechazado', tone: 'text-red-700' },
-  refunded: { label: 'Reembolsado', tone: 'text-ink/60' },
-}
 
 const when = (iso: string) =>
   new Intl.DateTimeFormat('es-VE', {
@@ -248,7 +242,7 @@ export default async function BookingDetail({
               etiqueta engaña. Lo que importa es cuánto entró y cuándo.
             */}
             {ordered.map((p, i) => {
-              const status = PAYMENT_STATUS[p.status]
+              const status = paymentStatus(p.status)
               // Una devolución es dinero que sale. Sin el signo, en una lista
               // mezclada con los cobros se lee como uno más y la reserva parece
               // haber recaudado el doble.

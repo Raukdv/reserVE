@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { paymentStatus } from '@/lib/payment-status'
 import { BUSINESS_TZ } from '@/lib/timezone'
 import { usd, ves, dateLabel } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
@@ -91,13 +92,6 @@ const STATUS: Record<BookingStatus, { label: string; tone: string; detail: strin
   },
 }
 
-const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: string }> = {
-  pending: { label: 'Pendiente', tone: 'text-ink/70' },
-  verifying: { label: 'Por verificar', tone: 'text-amber-700' },
-  approved: { label: 'Aprobado', tone: 'text-moss' },
-  rejected: { label: 'Rechazado', tone: 'text-red-700' },
-  refunded: { label: 'Reembolsado', tone: 'text-ink/70' },
-}
 
 // Volver del checkout no confirma nada: la confirmación llega por webhook, unos
 // segundos después. El aviso depende del estado real de la reserva, no solo del
@@ -355,8 +349,8 @@ export default async function BookingPage({
                       <p className="mt-1 text-xs text-red-700">{p.rejection_reason}</p>
                     )}
                   </div>
-                  <span className={`text-sm ${PAYMENT_STATUS[p.status].tone}`}>
-                    {PAYMENT_STATUS[p.status].label}
+                  <span className={`text-sm ${paymentStatus(p.status).tone}`}>
+                    {paymentStatus(p.status).label}
                   </span>
                 </li>
               ))}
