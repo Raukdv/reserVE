@@ -9,15 +9,6 @@ export const DAY_WIDTH = 28
 
 const ROW_HEIGHT = 44
 
-/**
- * Ancho de la columna de unidades, en píxeles. Es el `w-44` de las filas.
- *
- * Se repite aquí como número porque la barra de arriba necesita saber cuánto
- * mide la rejilla entera, y eso no se puede leer de una clase de Tailwind. Si
- * cambia `w-44`, cambia esto.
- */
-const UNIT_COL_WIDTH = 176
-
 export type Bar = {
   unitId: string
   /** Índice de la columna donde empieza, ya recortado a la ventana visible. */
@@ -293,58 +284,36 @@ export function CalendarGrid({
       )}
 
       {/*
-        Barra de desplazamiento espejo, encima de la rejilla.
+        La cabecera vive fuera de la rejilla, pegada arriba y con su propia barra.
 
-        Con veinte unidades la rejilla mide varias pantallas de alto y la única
-        barra horizontal quedaba al fondo: para mover el calendario a la derecha
-        había que bajar hasta el final, moverlo, y volver a subir.
+        Resuelve dos cosas de la misma raíz —veinte unidades son varias pantallas
+        de alto—:
 
-        Es un contenedor vacío del mismo ancho total que la rejilla, así que el
-        navegador le da su propia barra. Las dos se sincronizan en los dos
-        sentidos; la guarda de igualdad corta la realimentación, porque asignar
-        `scrollLeft` dispara otro `scroll` y sin ella se llamarían en bucle.
+        - La única barra horizontal quedaba al fondo. Para mover el calendario a
+          la derecha había que bajar hasta el final, moverlo y volver a subir.
+        - Al bajar por la rejilla se perdían los días. Uno acababa mirando barras
+          de colores sin saber en qué fecha estaba.
 
-        `aria-hidden` porque no aporta nada a quien no ve: es la misma región que
-        ya está debajo, y anunciarla dos veces solo estorba.
+        Sacarla del contenedor de la rejilla no es un capricho: `overflow-x: auto`
+        convierte a un elemento en contenedor de desplazamiento **en los dos
+        ejes**, así que un `sticky top-0` dentro se anclaría a esa caja, que crece
+        con su contenido y nunca desplaza en vertical. La cabecera se quedaría
+        pegada a un techo que baja con la página, o sea a nada.
+
+        Fuera, el ancla es la página y el pegado funciona. A cambio hay que
+        sincronizar el desplazamiento horizontal con la rejilla, que es lo que
+        hace `sync()`.
+
+        Las dos filas conservan las anchuras exactas de las celdas de abajo —el
+        `w-44` de la unidad y los `w-7` de cada día—, que es lo único que mantiene
+        la correspondencia entre la cabecera y las columnas.
       */}
       <div
         ref={railRef}
         onScroll={() => sync(railRef.current, gridRef.current)}
-        aria-hidden
-        // La altura es explícita porque la barra se dibuja **dentro** de la caja
-        // del contenedor, no debajo. Con el alto del contenido —un píxel— el
-        // navegador la recortaría entera y no habría nada que arrastrar. 18 px
-        // cubren la barra de Windows, que es la más alta de las tres.
-        className="mt-6 h-[18px] overflow-x-auto"
+        className="sticky top-0 z-20 mt-6 overflow-x-auto rounded-t-2xl border border-ink/10 bg-white"
       >
-        <div style={{ width: `${UNIT_COL_WIDTH + days.length * DAY_WIDTH}px`, height: 1 }} />
-      </div>
-
-      <div
-        ref={gridRef}
-        onScroll={() => sync(gridRef.current, railRef.current)}
-        className="mt-1 overflow-x-auto rounded-2xl border border-ink/10 bg-white"
-      >
-        <div
-          className="min-w-max"
-          onMouseUp={finishDrag}
-          onMouseLeave={() => {
-            setDrag(null)
-            setEspera(null)
-          }}
-        >
-          {/*
-            La fila de meses va aquí dentro, no encima de la caja.
-
-            Estaba en su propio contenedor con scroll, así que al desplazar la
-            rejilla los meses se quedaban quietos y dejaban de corresponderse
-            con los días. Se entendía al rato, mirando dos veces — que es
-            justamente lo que una cabecera no debe pedir.
-
-            Dentro del mismo `min-w-max` comparten desplazamiento, y el nombre
-            se apoya en el borde izquierdo del mes: el mismo borde marcado que
-            llevan la columna del día 1 y sus celdas más abajo.
-          */}
+        <div className="min-w-max">
           <div className="flex border-b border-ink/8 bg-ink/3">
             <div className="w-44 shrink-0 border-r border-ink/10" />
             {months.map((m) => (
@@ -360,7 +329,7 @@ export function CalendarGrid({
             ))}
           </div>
 
-          <div className="flex border-b border-ink/10">
+          <div className="flex">
             <div className="w-44 shrink-0 border-r border-ink/10 px-3 py-2 text-xs font-medium text-ink/70">
               Unidad
             </div>
@@ -369,7 +338,7 @@ export function CalendarGrid({
                 key={d.key}
                 className={`w-7 shrink-0 py-1 text-center text-[10px] leading-tight ${
                   // El día 1 hereda el borde del mes: es lo que ata la cabecera
-                  // de arriba con la columna concreta donde empieza.
+                  // con la columna concreta donde empieza.
                   d.key.endsWith('-01') ? 'border-l border-ink/20' : ''
                 } ${
                   d.key === todayIso
@@ -384,7 +353,22 @@ export function CalendarGrid({
               </div>
             ))}
           </div>
+        </div>
+      </div>
 
+      <div
+        ref={gridRef}
+        onScroll={() => sync(gridRef.current, railRef.current)}
+        className="overflow-x-auto rounded-b-2xl border border-t-0 border-ink/10 bg-white"
+      >
+        <div
+          className="min-w-max"
+          onMouseUp={finishDrag}
+          onMouseLeave={() => {
+            setDrag(null)
+            setEspera(null)
+          }}
+        >
           {units.map((unit) => (
             <div key={unit.id} className="flex border-b border-ink/8 last:border-b-0">
               <div className="w-44 shrink-0 truncate border-r border-ink/10 px-3 py-2.5 text-sm">
