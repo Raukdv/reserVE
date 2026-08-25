@@ -118,6 +118,45 @@ try {
   )
   check('quote_stay() responde', q.q !== null, JSON.stringify(q.q))
 
+  // Los impuestos no son ingreso: se cobran al huésped y se enteran al fisco.
+  //
+  // Savepoint, no `begin`. Todo este archivo corre ya dentro de una transacción
+  // abierta arriba: un `begin` anidado es un aviso que Postgres ignora, y el
+  // `rollback` que lo acompañaba cerraba la transacción de fuera. Eso confirmó
+  // el `delete` de tasas de la prueba de rancia y las borró de producción.
+  await client.query('savepoint tax_probe')
+  try {
+    await client.query(
+      `insert into fees (name, kind, amount, is_tax, sort_order)
+       values ('Prueba impuesto', 'percent', 16, true, 99)`,
+    )
+
+    const { rows: [t] } = await client.query(
+      `select quote_stay($1, '2030-06-01', '2030-06-04', 2) as q`, [unit.id],
+    )
+    const r = t.q
+
+    // El cuadre es lo que importa: lo que paga el huésped no cambia, solo se
+    // reparte. Si el negocio tiene ya otros cargos configurados, el impuesto
+    // será mayor que el mínimo esperado, nunca menor.
+    const minimo = Number((Number(r.subtotal_usd) * 0.16).toFixed(2))
+    const suma = Number((Number(r.net_usd) + Number(r.tax_usd)).toFixed(2))
+
+    check(
+      'el impuesto sale del ingreso',
+      Number(r.tax_usd) >= minimo && suma === Number(r.total_usd),
+      `total ${r.total_usd} = neto ${r.net_usd} + impuesto ${r.tax_usd}`,
+    )
+
+    check(
+      'el desglose dice cuál cargo es impuesto',
+      r.fees.some((f) => f.is_tax === true),
+      JSON.stringify(r.fees.map((f) => ({ n: f.name, imp: f.is_tax }))),
+    )
+  } finally {
+    await client.query('rollback to savepoint tax_probe')
+  }
+
   // El BCV cierra entre las 6 y las 8 de la tarde y lo que publica al cerrar el
   // viernes lleva fecha valor del lunes. Desde ese instante es la tasa legal: no
   // espera al lunes. Así que una tasa con fecha valor futura sí debe usarse.
@@ -160,29 +199,40 @@ try {
     Si el alimentador lleva días caído, no se cotiza en bolívares en vez de
     cobrar con una tasa vieja.
 
-    Las tasas se apartan y se repone una vieja, en lugar de correrles la fecha
-    diez días. Correrlas funcionaba con pocas filas y empezó a chocar en cuanto
-    el histórico pasó de diez días: `08-20 menos 10` cae sobre el `08-10` que
-    todavía no se había movido, y el índice único lo rechaza. Apartarlas no
-    depende de cuántas haya.
+    Para simularlo hay que quitar las tasas buenas de en medio, y eso es la
+    operación más peligrosa de todo este archivo: un `delete` sobre las tasas
+    oficiales de producción. Va dentro de un savepoint y se deshace ahí mismo.
+
+    Antes se apartaban en una tabla temporal `on commit drop` y se reponían
+    treinta líneas más abajo, confiando en el `rollback` del final. Eso aguanta
+    mientras nada rompa la transacción — y cuando algo la rompió, el `delete`
+    quedó confirmado y las tasas oficiales desaparecieron de verdad. Se
+    recuperaron desde `rate_fetch_log`, que las tenía todas, pero mientras tanto
+    `quote_stay()` devolvía `stale_rate` a todo el mundo.
+
+    Con un savepoint el borrado se deshace aunque lo de después falle, y no hace
+    falta ni copia ni restauración.
   */
-  await client.query(
-    `create temp table _rates_backup on commit drop as
-     select * from exchange_rates where market = 'oficial'`,
-  )
-  await client.query(`delete from exchange_rates where market = 'oficial'`)
-  await client.query(
-    `insert into exchange_rates (rate_date, market, usd_ves, source)
-     values (business_today() - 30, 'oficial', 100, 'prueba')`,
-  )
-  const { rows: [stale] } = await client.query('select rate_is_stale() as s')
-  const { rows: [staleQuote] } = await client.query(
-    `select quote_stay($1, '2030-06-01', '2030-06-04', 2) as q`, [unit.id],
-  )
+  let stale, staleQuote
+  await client.query('savepoint stale_probe')
+  try {
+    await client.query(`delete from exchange_rates where market = 'oficial'`)
+    await client.query(
+      `insert into exchange_rates (rate_date, market, usd_ves, source)
+       values (business_today() - 30, 'oficial', 100, 'prueba')`,
+    )
+    ;({ rows: [stale] } = await client.query('select rate_is_stale() as s'))
+    ;({ rows: [staleQuote] } = await client.query(
+      `select quote_stay($1, '2030-06-01', '2030-06-04', 2) as q`, [unit.id],
+    ))
+  } finally {
+    await client.query('rollback to savepoint stale_probe')
+  }
+
   check(
     'rechaza cotizar con tasa rancia',
-    stale.s === true && staleQuote.q?.error === 'stale_rate',
-    JSON.stringify(staleQuote.q),
+    stale?.s === true && staleQuote?.q?.error === 'stale_rate',
+    JSON.stringify(staleQuote?.q),
   )
 
   /*
@@ -210,8 +260,7 @@ try {
   )
 
   // El flujo completo: crear reserva, rechazar la solapada, reportar pago.
-  await client.query(`delete from exchange_rates where market = 'oficial'`)
-  await client.query(`insert into exchange_rates select * from _rates_backup`)
+  // Las tasas ya están en su sitio: el savepoint de arriba deshizo el borrado.
   const { rows: [created] } = await client.query(
     `select create_booking($1,'2031-02-10','2031-02-14',2,'Prueba','prueba@example.com',null,null,null) as r`,
     [unit.id],
