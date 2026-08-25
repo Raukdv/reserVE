@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { paymentStatus } from '@/lib/payment-status'
+import { PILL_SHAPE, paymentStatus } from '@/lib/payment-status'
 import { bookingStatus } from '@/lib/booking-status'
 import { BUSINESS_TZ } from '@/lib/timezone'
 import { publicEnv } from '@/lib/env'
@@ -270,7 +270,7 @@ export default async function BookingDetail({
                       {p.reference && <span className="ml-2 font-mono">{p.reference}</span>}
                     </span>
                   </span>
-                  <span className={`shrink-0 text-sm ${status.tone}`}>{status.label}</span>
+                  <span className={`shrink-0 ${PILL_SHAPE} ${status.tone}`}>{status.label}</span>
                 </li>
               )
             })}

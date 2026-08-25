@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { PaymentReviewCard, type ReviewPayment } from '@/components/payment-review-card'
-import { PAYMENT_STATUS, paymentStatus } from '@/lib/payment-status'
+import { PAYMENT_STATUS, PILL_SHAPE, paymentStatus } from '@/lib/payment-status'
 import { METHODS } from '@/lib/payment-methods'
 import { usd, dateLabel } from '@/lib/format'
 import type { PaymentMethod, PaymentStatus } from '@/types/database'
@@ -356,8 +356,8 @@ export default async function PaymentsPage({
                             </span>
                           )}
                         </td>
-                        <td className={`px-5 py-3 text-right text-sm ${pill.tone}`}>
-                          {pill.label}
+                        <td className="px-5 py-3 text-right">
+                          <span className={`${PILL_SHAPE} ${pill.tone}`}>{pill.label}</span>
                         </td>
                       </tr>
                     )
