@@ -5,6 +5,9 @@ Cómo entra el dinero y cómo se comprueba que entró de verdad.
 Junto con el calendario, es la pantalla que define el producto: la que el
 operador abre todos los días.
 
+Para **cómo se forma la cifra** que se cobra —tarifas por temporada, cargos,
+impuestos—, ver `precio-y-cargos.md`.
+
 ---
 
 ## El reporte manual es el camino principal

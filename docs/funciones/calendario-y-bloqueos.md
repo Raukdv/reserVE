@@ -123,17 +123,55 @@ coloreada; con el desplazamiento media celda pertenece a una estadía y media a 
 siguiente, así que ahora las celdas son solo fondo y las barras se posicionan en
 absoluto sobre la fila.
 
-### Arrastrar para bloquear
+### Dos formas de seleccionar: arrastre y dos toques
 
-Sobre los días libres de una unidad se arrastra y aparece la confirmación con el
-motivo. El rango que propone es **semiabierto**, igual que en la base: arrastrar
-hasta el día 3 propone `[.., 4)`, porque la salida queda libre.
+Con ratón se arrastra sobre los días libres de una unidad y aparece la
+confirmación con el motivo. El rango que propone es **semiabierto**, igual que en
+la base: llegar hasta el día 3 propone `[.., 4)`, porque la salida queda libre.
 
-Los días ya ocupados no son arrastrables — proponer un bloqueo que el `EXCLUDE`
-va a rechazar sería ofrecer algo que no se puede hacer.
+Los días ya ocupados no son seleccionables — proponer un bloqueo que el `EXCLUDE`
+va a rechazar sería ofrecer algo que no se puede hacer. Y la selección **no los
+cruza**: al llegar a una estadía se detiene ahí. Antes las casillas ocupadas se
+ignoraban al pasar por encima pero la de más allá sí extendía el rango, y el
+bloqueo salía con una reserva dentro; la base lo rechazaba, pero el operador
+recibía un error en vez de un tope visible.
 
 La rejilla es componente cliente por esto. La fila de meses se quedó en el
-servidor, porque no participa del arrastre.
+servidor, porque no participa de la selección.
+
+#### En táctil, dos toques dentro de un modo
+
+El arrastre se apoya en `mousedown` y `mouseenter`, que en una pantalla táctil no
+existen. Imitarlo con `touchmove` obligaría a `preventDefault` sobre el
+contenedor, y eso mata el scroll horizontal — que en una rejilla de 45 días es
+justo lo que hace falta para llegar a la fecha.
+
+Así que un botón entra en **modo selección**, y dentro:
+
+1. Toque en una casilla libre marca el inicio, con un anillo que lo distingue.
+2. Toque en otra cierra el rango y abre la confirmación de siempre.
+3. Un tercer toque mueve el extremo más cercano en vez de empezar de cero.
+
+El modo hace falta porque con el dedo no hay diferencia entre «toco para
+seleccionar» y «toco para abrir la reserva»; sin él, cualquier toque sería
+ambiguo. Dentro del modo las barras quedan con `pointer-events-none` para que
+mande la casilla de debajo.
+
+El tercer toque tampoco es capricho: con el dedo se falla la casilla más de lo
+que uno cree, y obligar a reiniciar la selección por un día de diferencia es lo
+que hace abandonar.
+
+#### Y con el teclado, de rebote
+
+El botón se muestra siempre, no solo bajo `(pointer: coarse)`. Dentro del modo
+las casillas son `<button>` de verdad, con `aria-pressed` y etiqueta, así que el
+bloqueo pasa a ser alcanzable tabulando. No estaba planeado —salió gratis al
+elegir toques discretos en lugar de imitar el arrastre— pero cierra el hueco.
+
+La instrucción del pie cambia con el puntero: decir «arrastra» en una pantalla
+táctil es mandar al operador a intentar algo que no puede funcionar. Se resuelve
+con las variantes `pointer-coarse` de Tailwind y no con `matchMedia`, para que
+servidor y cliente pinten lo mismo y no haya desajuste de hidratación.
 
 ### Los colores separan por tono, no por intensidad
 
@@ -171,13 +209,9 @@ equivocada.
 
 ## Lo que no cubre
 
-**El arrastre es solo de ratón.** Se apoya en `mousedown`, `mouseenter` y
-`mouseup`, que en táctil no existen. En móvil queda el formulario de fechas de
-siempre. La salida acordada es un modo de selección por toques —uno marca el
-inicio, otro el fin— en lugar de imitar el arrastre, que obligaría a matar el
-scroll horizontal de la rejilla. Ver `PENDIENTES.md`.
-
-Tampoco hay equivalente por teclado.
+**Nada impide bloquear una fecha pasada.** La rejilla arranca en el día de hoy,
+así que no se ve, pero la acción no lo comprueba. Bloquear ayer no rompe nada
+—ninguna reserva puede caer ahí— y por eso no se ha puesto la guarda.
 
 **Acortar una estadía no existe.** Alargar sí —`staff_extend_stay()`— pero
 recortar implica devolver dinero y pasa por la política de cancelación, así que
@@ -199,7 +233,7 @@ resumen del panel. Ver `night-audit.md`.
 | Alargar una estadía | `staff_extend_stay()`, migración `0026` |
 | Expiración de pendientes | `expire_stale_bookings()`, migración `0001`; cron en `0005` |
 | Datos del timeline | `src/app/admin/calendario/page.tsx` |
-| Rejilla, barras y arrastre | `src/components/calendar-grid.tsx` |
+| Rejilla, barras, arrastre y modo por toques | `src/components/calendar-grid.tsx` |
 | Formulario de bloqueo | `src/components/block-dates.tsx` |
 | Calendario público | `src/components/availability-calendar.tsx` |
 | Pruebas de la restricción | `scripts/db-check.mjs` |
