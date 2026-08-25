@@ -228,13 +228,18 @@ export default async function AdminHome() {
             </thead>
             <tbody className="divide-y divide-ink/8">
               {upcoming.map((b) => (
-                <tr key={b.code} className="group cursor-pointer hover:bg-sand/60">
+                <tr key={b.code} className="group relative cursor-pointer hover:bg-sand/60">
                   {/*
                     El enlace va dentro de la primera celda y se estira sobre toda
                     la fila: anidar <a> alrededor de <tr> no es HTML válido y los
                     navegadores lo reescriben fuera de la tabla.
+
+                    Lo que hace que se estire de verdad es el `relative` del
+                    <tr>. Estaba en el <td>, y entonces `inset-0` se anclaba a la
+                    celda: solo el código era pulsable, aunque toda la fila
+                    tuviera cursor de mano.
                   */}
-                  <td className="relative py-3 font-mono text-xs">
+                  <td className="py-3 font-mono text-xs">
                     <Link
                       href={`/admin/reservas/${b.code}`}
                       className="absolute inset-0"

@@ -201,12 +201,17 @@ export default async function BookingsPage({
                   const pill = bookingStatus(b.status)
 
                   return (
-                    <tr key={b.code} className="cursor-pointer hover:bg-sand/60">
+                    <tr key={b.code} className="relative cursor-pointer hover:bg-sand/60">
                       {/*
-                        El enlace se estira sobre la fila desde la primera celda:
-                        envolver un <tr> en <a> no es HTML válido.
+                        El enlace se estira sobre la fila entera desde la primera
+                        celda: envolver un <tr> en <a> no es HTML válido.
+
+                        El `relative` va en el <tr>, no en el <td>. Estaba en la
+                        celda, y como `inset-0` se ancla al ancestro posicionado
+                        más cercano, el área pulsable era solo la del código —
+                        el resto de la fila tenía cursor de mano y no hacía nada.
                       */}
-                      <td className="relative px-5 py-3 font-mono text-xs">
+                      <td className="px-5 py-3 font-mono text-xs">
                         <Link
                           href={`/admin/reservas/${b.code}`}
                           className="absolute inset-0"
