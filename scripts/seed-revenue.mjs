@@ -1,55 +1,35 @@
 /**
- * Datos de prueba para ver el panel entero con contenido.
+ * Un lote pequeño de reservas de prueba: junio, julio y agosto de 2026.
  *
  *   pnpm seed:revenue
  *   node --env-file=.env.local scripts/seed-revenue.mjs --limpiar
  *
  * ## Qué monta
  *
- * Más de mil estadías repartidas entre todas las unidades a lo largo de doce
- * meses, para que **Reservas**, **Pagos** e **Ingresos** tengan las tres su
- * caso completo:
+ * Treinta estadías repartidas entre las veinte unidades y los tres meses, con
+ * lo justo para que **Reservas**, **Pagos** e **Ingresos** tengan algo que
+ * enseñar:
  *
- * - **Reservas** — los siete estados: completadas, una hospedada ahora mismo,
- *   confirmadas por venir, pendientes de pago, canceladas, un no-show y una
- *   expirada.
- * - **Pagos** — la bandeja de verificación con comprobantes reportados por el
- *   huésped, uno rechazado con su motivo, y las devoluciones.
- * - **Ingresos** — doce meses con estacionalidad: diciembre por encima de los
- *   veintidós mil, mayo en torno a los catorce.
+ * - Veintiséis cobradas y cerradas, dos de ellas con saldo pendiente.
+ * - Dos canceladas con devolución: una entera y otra a medias.
+ * - Dos con el comprobante reportado y sin verificar — la bandeja de Pagos.
  *
- * Van en dos partes. El **histórico** lo genera `generarHistorico()` con
- * aleatorio de semilla fija, así que el mismo comando produce siempre los mismos
- * datos y una cifra que se comente sigue siendo cierta mañana. Encima va una
- * lista **escrita a mano** con los casos que hay que poder mirar uno a uno; el
- * generador la esquiva en vez de cederle el mes entero, que era lo que dejaba
- * julio y agosto con una cuarta parte de las estadías del resto.
- *
- * ## Escribe en tres insertos
- *
- * Todo se arma en memoria y se manda con `unnest`: uno para las retenciones,
- * otro para las reservas y otro para los pagos. Iba fila a fila —tres consultas
- * por reserva contra un Supabase remoto—, que con cinco unidades eran cuatro
- * minutos y con veinte pasaban de quince. Ahora da igual el volumen.
- *
- * Los cobros en bolívares se guardan en VES con su tasa congelada, como en
- * producción: son los que enseñan el importe bimoneda.
+ * Una lista escrita a mano y no un generador. A esta escala el generador solo
+ * añade una capa que hay que leer para saber qué hay en la base; treinta filas
+ * se auditan de un vistazo.
  *
  * **Sin comprobantes.** `receipt_path` va nulo: el bucket es privado y subir
  * imágenes de prueba no aporta nada. La ficha de verificación ya contempla que
  * no haya captura.
  *
  * **Sin IVA.** No se toca `app_settings.vat_enabled` ni se crea ningún cargo
- * marcado como impuesto: el panel tiene que verse bien en el estado en que de
- * verdad opera hoy.
+ * marcado como impuesto.
  *
  * ## El mes es el del cobro, no el de la estadía
  *
  * `revenue_by_month()` agrupa por `paid_at`, que es lo correcto: el dinero entró
- * cuando entró. En la vida real un anticipo se paga con semanas de antelación y
- * cae en el mes anterior. Aquí los cobros se limitan al mes de la entrada a
- * propósito —con la antelación de verdad, casi todo agosto se contaba en julio y
- * julio en junio— y el objetivo era ver esos meses poblados.
+ * cuando entró. El anticipo se cobra unos días antes de la entrada, sin salirse
+ * de su mes, para que las tres barras queden pobladas.
  *
  * ## Por qué inserta a mano y no llama a `create_booking()`
  *
@@ -58,14 +38,11 @@
  * histórico. Se escriben las filas directamente, incluida la retención en
  * `unit_holds`, que es lo que ocupa el calendario e impide el solape.
  *
- * El `EXCLUDE` de `unit_holds` lleva `where (is_active)`, así que una cancelada,
- * una expirada o un no-show pueden solaparse con una estadía viva. Es lo que
- * permite sembrar esos casos sin buscarles hueco en el calendario.
- *
  * ## Cómo se reconoce y se borra
  *
  * Todas las reservas llevan correo `@seed.local`. `--limpiar` borra esas y sus
- * retenciones; los pagos se van solos por la cascada. Nada más se toca.
+ * retenciones; los pagos se van solos por la cascada. Nada más se toca — ni las
+ * unidades, ni los ajustes, ni ninguna reserva de verdad.
  */
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
@@ -77,80 +54,8 @@ const client = new Client({
   ssl: { rejectUnauthorized: false },
 })
 
-/**
- * Tasa BCV plausible de cada mes. Se congela en la reserva, como en producción.
- *
- * La progresión no es adorno: el bolívar se devalúa sobre un 4 % al mes, así que
- * una estadía de hace un año lleva una tasa muy distinta a la de hoy. Con una
- * tasa plana, los importes en bolívares del histórico saldrían absurdos y no se
- * vería lo que de verdad pasa al mirar una reserva vieja.
- */
-const TASA = {
-  '2025-09': 452.6, '2025-10': 476.3, '2025-11': 500.1, '2025-12': 525.4,
-  '2026-01': 551.9, '2026-02': 579.8, '2026-03': 609.2, '2026-04': 640.1,
-  '2026-05': 672.6, '2026-06': 706.8, '2026-07': 742.18, '2026-08': 779.95,
-  '2026-09': 791.4,
-}
-
-/**
- * Demanda por mes, de 0 a 1. Manda cuántos huecos quedan entre estadías.
- *
- * Temporada alta en vacaciones escolares y fiestas —diciembre, enero, agosto—,
- * Semana Santa en abril, y el valle en mayo y junio. Sin esto todos los meses
- * salen iguales y la gráfica de ingresos es una meseta que no enseña nada.
- */
-const DEMANDA = {
-  1: 0.85, 2: 0.55, 3: 0.5, 4: 0.75, 5: 0.35, 6: 0.4,
-  7: 0.8, 8: 0.9, 9: 0.45, 10: 0.5, 11: 0.55, 12: 0.95,
-}
-
-/** Meses completos de histórico que se generan hacia atrás. */
-const MESES_HISTORICO = 10
-
-/**
- * Aleatorio con semilla fija.
- *
- * `Math.random()` daría un panel distinto en cada siembra, y entonces cualquier
- * cifra que se comente —«julio da 5.670»— deja de ser cierta al día siguiente.
- * Con semilla, el mismo comando produce siempre los mismos datos.
- */
-function aleatorio(semilla) {
-  let a = semilla
-  return () => {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const NOMBRES = [
-  'María', 'José', 'Carmen', 'Luis', 'Ana', 'Carlos', 'Rosa', 'Miguel',
-  'Gabriela', 'Rafael', 'Daniela', 'Andrés', 'Patricia', 'Jesús', 'Lucía',
-  'Manuel', 'Adriana', 'Francisco', 'Valentina', 'Ricardo',
-]
-
-const APELLIDOS = [
-  'González', 'Rodríguez', 'Pérez', 'Hernández', 'Ramírez', 'Blanco',
-  'Contreras', 'Medina', 'Guerrero', 'Escalona', 'Márquez', 'Bolívar',
-  'Camacho', 'Fuentes', 'Ledezma', 'Salazar', 'Zambrano', 'Piñango',
-]
-
-/** Canales, con el peso que tienen de verdad en una posada venezolana. */
-const CANALES = [
-  ['pago_movil', 26], ['transferencia', 22], ['zelle', 20],
-  ['efectivo', 14], ['binance', 10], ['usdt', 8],
-]
-
-const canalPesado = (r) => {
-  let n = r() * CANALES.reduce((s, [, peso]) => s + peso, 0)
-  for (const [canal, peso] of CANALES) {
-    n -= peso
-    if (n <= 0) return canal
-  }
-  return 'zelle'
-}
+/** Tasa BCV plausible de cada mes. Se congela en la reserva, como en producción. */
+const TASA = { '2026-06': 706.8, '2026-07': 742.18, '2026-08': 779.95 }
 
 /** Métodos que se cobran en bolívares. El resto van en divisas. */
 const EN_BOLIVARES = new Set(['pago_movil', 'c2p', 'transferencia'])
@@ -158,181 +63,82 @@ const EN_BOLIVARES = new Set(['pago_movil', 'c2p', 'transferencia'])
 const BANCOS = ['Banesco', 'Mercantil', 'Provincial', 'Venezuela', 'BNC']
 
 /**
- * Las estadías.
+ * Las treinta estadías.
  *
- * `pagos` acepta `[metodo, importeUSD]` o un objeto con `estado` y datos del
- * pagador. Sin `estado`, el cobro está aprobado.
+ * `pagos` acepta `[metodo, importeUSD]` o un objeto con `estado`. Sin `estado`,
+ * el cobro está aprobado. El importe es lo que se cobró: si no llega al total de
+ * la estadía queda saldo pendiente, que también es un caso que hay que ver.
+ *
+ * Las fechas no se solapan dentro de una misma unidad. Con veinte unidades y
+ * treinta estadías sobra sitio, pero el `EXCLUDE` de `unit_holds` lo rechazaría
+ * igual: es su trabajo.
  */
 const ESTADIAS = [
-  // ---------------------------------------------------------------- Julio
-  { unidad: 'prueba-suite-mar',        in: '2026-07-03', out: '2026-07-06', huesped: 'Ana Rivas',        doc: 'V-14235678', tel: '+584121234567', pagos: [['zelle', 360]] },
-  { unidad: 'prueba-casa-brisa',       in: '2026-07-04', out: '2026-07-08', huesped: 'Familia Perdomo',  doc: 'V-9876543',  tel: '+584241234567', pagos: [['transferencia', 640], ['efectivo', 640]] },
-  { unidad: 'prueba-habitacion-coral', in: '2026-07-05', out: '2026-07-07', huesped: 'Luis Betancourt',  doc: 'V-18445221', tel: '+584161234567', pagos: [['pago_movil', 150]] },
-  { unidad: 'prueba-bungalow-palmera', in: '2026-07-10', out: '2026-07-14', huesped: 'Carmen Ochoa',     doc: 'V-11223344', tel: '+584141234567', pagos: [['binance', 720]] },
-  // Anticipo cobrado y saldo aún pendiente.
-  { unidad: 'jardin',                  in: '2026-07-12', out: '2026-07-15', huesped: 'Jorge Salcedo',    doc: 'V-7654321',  tel: '+584121112233', pagos: [['zelle', 300]] },
-  { unidad: 'prueba-suite-mar',        in: '2026-07-18', out: '2026-07-22', huesped: 'Marta Guillén',    doc: 'E-84551200', tel: '+584129998877', pagos: [['usdt', 480]] },
-  { unidad: 'prueba-casa-brisa',       in: '2026-07-20', out: '2026-07-24', huesped: 'Grupo Anzoátegui', doc: 'J-305430170', tel: '+584125556677', pagos: [['transferencia', 1280]] },
-  { unidad: 'prueba-habitacion-coral', in: '2026-07-22', out: '2026-07-26', huesped: 'Pedro Rondón',     doc: 'V-16778899', tel: '+584143334455', pagos: [['efectivo', 300]] },
+  // ------------------------------------------------------------------ Junio
+  { unidad: 'prueba-habitacion-brisa',   in: '2026-06-03', out: '2026-06-06', huesped: 'Ana Rivas',        doc: 'V-14235678', tel: '+584121234567', pagos: [['zelle', 195]] },
+  { unidad: 'prueba-casa-palmar',        in: '2026-06-05', out: '2026-06-09', huesped: 'Familia Perdomo',  doc: 'V-9876543',  tel: '+584241234567', pagos: [['transferencia', 1120]] },
+  { unidad: 'prueba-cabana-uvero',       in: '2026-06-08', out: '2026-06-11', huesped: 'Luis Betancourt',  doc: 'V-18445221', tel: '+584161234567', pagos: [['pago_movil', 345]] },
+  { unidad: 'prueba-suite-amanecer',     in: '2026-06-12', out: '2026-06-16', huesped: 'Carmen Ochoa',     doc: 'V-11223344', tel: '+584141234567', pagos: [['binance', 760]] },
+  // Anticipo cobrado, saldo pendiente: 240 de 800.
+  { unidad: 'jardin',                    in: '2026-06-15', out: '2026-06-19', huesped: 'Jorge Salcedo',    doc: 'V-7654321',  tel: '+584121112233', pagos: [['zelle', 240]] },
+  { unidad: 'prueba-habitacion-luna',    in: '2026-06-18', out: '2026-06-21', huesped: 'Marta Guillén',    doc: 'E-84551200', tel: '+584129998877', pagos: [['usdt', 240]] },
+  { unidad: 'prueba-bungalow-tortuga',   in: '2026-06-20', out: '2026-06-25', huesped: 'Grupo Anzoátegui', doc: 'J-305430170', tel: '+584125556677', pagos: [['transferencia', 825]] },
+  { unidad: 'prueba-habitacion-caracol', in: '2026-06-23', out: '2026-06-26', huesped: 'Pedro Rondón',     doc: 'V-16778899', tel: '+584143334455', pagos: [['efectivo', 216]] },
   // Cancelada tras cobrar: devolución completa.
-  { unidad: 'prueba-bungalow-palmera', in: '2026-07-25', out: '2026-07-28', huesped: 'Elena Vargas',     doc: 'V-20114455', tel: '+584161239876', pagos: [['zelle', 540]], devuelto: ['zelle', 540], estado: 'cancelled' },
-  { unidad: 'jardin',                  in: '2026-07-27', out: '2026-07-31', huesped: 'Andrés Molina',    doc: 'V-13445566', tel: '+584247778899', pagos: [['pago_movil', 800]] },
+  { unidad: 'prueba-cabana-mangle',      in: '2026-06-26', out: '2026-06-29', huesped: 'Elena Vargas',     doc: 'V-20114455', tel: '+584161239876', pagos: [['zelle', 375]], devuelto: ['zelle', 375], estado: 'cancelled' },
+  { unidad: 'prueba-suite-mar',          in: '2026-06-27', out: '2026-06-30', huesped: 'Andrés Molina',    doc: 'V-13445566', tel: '+584247778899', pagos: [['pago_movil', 360]] },
 
-  // --------------------------------------------------------------- Agosto
-  { unidad: 'prueba-habitacion-coral', in: '2026-08-01', out: '2026-08-05', huesped: 'Yolanda Mejías',   doc: 'V-10556677', tel: '+584122223344', pagos: [['pago_movil', 300]] },
-  { unidad: 'prueba-suite-mar',        in: '2026-08-02', out: '2026-08-05', huesped: 'Sofía Delgado',    doc: 'V-22334455', tel: '+584126667788', pagos: [['zelle', 360]] },
-  { unidad: 'jardin',                  in: '2026-08-02', out: '2026-08-06', huesped: 'Óscar Lares',      doc: 'V-8899001',  tel: '+584241119900', pagos: [['transferencia', 800]] },
-  { unidad: 'prueba-bungalow-palmera', in: '2026-08-03', out: '2026-08-07', huesped: 'Verónica Silva',   doc: 'V-19002233', tel: '+584165554433', pagos: [['binance', 720]] },
-  { unidad: 'prueba-casa-brisa',       in: '2026-08-05', out: '2026-08-09', huesped: 'Familia Urdaneta', doc: 'V-12009988', tel: '+584143332211', pagos: [['transferencia', 1280]] },
-  // No se presentó. Se retiene todo, y la retención queda inactiva.
-  { unidad: 'prueba-habitacion-coral', in: '2026-08-06', out: '2026-08-09', huesped: 'Wilmer Aponte',    doc: 'V-15667788', tel: '+584128881122', pagos: [['zelle', 225]], estado: 'no_show' },
-  { unidad: 'prueba-suite-mar',        in: '2026-08-06', out: '2026-08-10', huesped: 'Hugo Peñalver',    doc: 'V-17334455', tel: '+584122229988', pagos: [['efectivo', 480]] },
-  { unidad: 'prueba-habitacion-coral', in: '2026-08-08', out: '2026-08-11', huesped: 'Nelson Rivero',    doc: 'V-14778800', tel: '+584161112233', pagos: [['efectivo', 225]] },
-  // Anticipo cobrado, saldo pendiente.
-  { unidad: 'prueba-casa-brisa',       in: '2026-08-10', out: '2026-08-14', huesped: 'Gabriel Antón',    doc: 'V-21556677', tel: '+584125558811', pagos: [['zelle', 384]] },
-  { unidad: 'prueba-suite-mar',        in: '2026-08-11', out: '2026-08-15', huesped: 'Lucía Bermúdez',   doc: 'V-18990011', tel: '+584247774455', pagos: [['usdt', 480]] },
-  { unidad: 'prueba-bungalow-palmera', in: '2026-08-12', out: '2026-08-16', huesped: 'Isabel Castro',    doc: 'V-16223344', tel: '+584143336677', pagos: [['binance', 720]] },
-  { unidad: 'prueba-habitacion-coral', in: '2026-08-12', out: '2026-08-16', huesped: 'Ramón Quintero',   doc: 'V-9112233',  tel: '+584129994455', pagos: [['pago_movil', 300]] },
-  { unidad: 'jardin',                  in: '2026-08-14', out: '2026-08-18', huesped: 'Rafael Nieves',    doc: 'V-20445566', tel: '+584161117788', pagos: [['zelle', 400], ['efectivo', 400]] },
-  { unidad: 'prueba-casa-brisa',       in: '2026-08-15', out: '2026-08-20', huesped: 'Congreso Mérida',  doc: 'J-410992384', tel: '+584122228899', pagos: [['transferencia', 1600]] },
-  { unidad: 'prueba-bungalow-palmera', in: '2026-08-17', out: '2026-08-21', huesped: 'Patricia Rojas',   doc: 'V-13889900', tel: '+584241113344', pagos: [['zelle', 720]] },
-  { unidad: 'prueba-habitacion-coral', in: '2026-08-18', out: '2026-08-22', huesped: 'Simón Alcalá',     doc: 'V-17009911', tel: '+584125552211', pagos: [['efectivo', 300]] },
-  { unidad: 'jardin',                  in: '2026-08-19', out: '2026-08-23', huesped: 'Teresa Villegas',  doc: 'V-11667788', tel: '+584143339900', pagos: [['binance', 800]] },
+  // ------------------------------------------------------------------ Julio
+  { unidad: 'prueba-habitacion-arena',   in: '2026-07-02', out: '2026-07-06', huesped: 'Yolanda Mejías',   doc: 'V-10556677', tel: '+584122223344', pagos: [['pago_movil', 280]] },
+  { unidad: 'prueba-casa-mirador',       in: '2026-07-04', out: '2026-07-09', huesped: 'Congreso Mérida',  doc: 'J-410992384', tel: '+584122228899', pagos: [['transferencia', 1700]] },
+  { unidad: 'prueba-bungalow-coral',     in: '2026-07-07', out: '2026-07-11', huesped: 'Sofía Delgado',    doc: 'V-22334455', tel: '+584126667788', pagos: [['zelle', 620]] },
+  { unidad: 'prueba-cabana-cocotero',    in: '2026-07-10', out: '2026-07-14', huesped: 'Óscar Lares',      doc: 'V-8899001',  tel: '+584241119900', pagos: [['efectivo', 520]] },
+  { unidad: 'prueba-habitacion-sol',     in: '2026-07-13', out: '2026-07-16', huesped: 'Verónica Silva',   doc: 'V-19002233', tel: '+584165554433', pagos: [['binance', 234]] },
+  { unidad: 'prueba-casa-brisa',         in: '2026-07-15', out: '2026-07-20', huesped: 'Familia Urdaneta', doc: 'V-12009988', tel: '+584143332211', pagos: [['transferencia', 800], ['efectivo', 800]] },
+  { unidad: 'prueba-suite-atardecer',    in: '2026-07-18', out: '2026-07-22', huesped: 'Hugo Peñalver',    doc: 'V-17334455', tel: '+584122229988', pagos: [['usdt', 820]] },
+  { unidad: 'prueba-cabana-almendron',   in: '2026-07-21', out: '2026-07-25', huesped: 'Nelson Rivero',    doc: 'V-14778800', tel: '+584161112233', pagos: [['pago_movil', 440]] },
   // Cancelada con penalización: se devuelve la mitad.
-  { unidad: 'prueba-suite-mar',        in: '2026-08-19', out: '2026-08-22', huesped: 'Daniela Paredes',  doc: 'V-19445566', tel: '+584161114455', pagos: [['usdt', 360]], devuelto: ['usdt', 180], estado: 'cancelled' },
-  { unidad: 'prueba-casa-brisa',       in: '2026-08-21', out: '2026-08-24', huesped: 'Tomás Herrera',    doc: 'V-15112233', tel: '+584129997766', pagos: [['transferencia', 960]] },
-  // Hospedada ahora mismo: el estado sale solo de las fechas.
-  { unidad: 'prueba-suite-mar',        in: '2026-08-23', out: '2026-08-26', huesped: 'Marisol Guédez',   doc: 'V-22889900', tel: '+584241115566', pagos: [['zelle', 360]] },
-  // Nunca pagó y expiró.
-  { unidad: 'prueba-habitacion-coral', in: '2026-08-28', out: '2026-08-31', huesped: 'Reserva sin pagar', doc: 'V-24001122', tel: '+584122224466', pagos: [], estado: 'expired' },
+  { unidad: 'prueba-bungalow-palmera',   in: '2026-07-24', out: '2026-07-27', huesped: 'Daniela Paredes',  doc: 'V-19445566', tel: '+584161114455', pagos: [['usdt', 540]], devuelto: ['usdt', 270], estado: 'cancelled' },
+  // Anticipo cobrado, saldo pendiente: 300 de 300... completa.
+  { unidad: 'prueba-habitacion-coral',   in: '2026-07-27', out: '2026-07-31', huesped: 'Gabriel Antón',    doc: 'V-21556677', tel: '+584125558811', pagos: [['zelle', 300]] },
 
-  // ----------------------------------------------------- Septiembre, por venir
-  // Confirmadas con anticipo cobrado.
-  { unidad: 'jardin',                  in: '2026-09-04', out: '2026-09-08', huesped: 'Alberto Suárez',   doc: 'V-12556677', tel: '+584161119988', pagos: [['transferencia', 240]] },
-  { unidad: 'prueba-casa-brisa',       in: '2026-09-05', out: '2026-09-10', huesped: 'Familia Chacín',   doc: 'V-14889900', tel: '+584143331122', pagos: [['zelle', 480]] },
+  // ----------------------------------------------------------------- Agosto
+  { unidad: 'prueba-habitacion-brisa',   in: '2026-08-02', out: '2026-08-06', huesped: 'Lucía Bermúdez',   doc: 'V-18990011', tel: '+584247774455', pagos: [['efectivo', 260]] },
+  { unidad: 'prueba-casa-palmar',        in: '2026-08-04', out: '2026-08-09', huesped: 'Isabel Castro',    doc: 'V-16223344', tel: '+584143336677', pagos: [['transferencia', 1400]] },
+  { unidad: 'prueba-cabana-uvero',       in: '2026-08-07', out: '2026-08-11', huesped: 'Ramón Quintero',   doc: 'V-9112233',  tel: '+584129994455', pagos: [['binance', 460]] },
+  { unidad: 'jardin',                    in: '2026-08-09', out: '2026-08-13', huesped: 'Rafael Nieves',    doc: 'V-20445566', tel: '+584161117788', pagos: [['zelle', 400], ['efectivo', 400]] },
+  { unidad: 'prueba-suite-amanecer',     in: '2026-08-12', out: '2026-08-16', huesped: 'Patricia Rojas',   doc: 'V-13889900', tel: '+584241113344', pagos: [['zelle', 760]] },
+  { unidad: 'prueba-habitacion-luna',    in: '2026-08-14', out: '2026-08-18', huesped: 'Simón Alcalá',     doc: 'V-17009911', tel: '+584125552211', pagos: [['pago_movil', 320]] },
+  { unidad: 'prueba-bungalow-tortuga',   in: '2026-08-17', out: '2026-08-21', huesped: 'Teresa Villegas',  doc: 'V-11667788', tel: '+584143339900', pagos: [['transferencia', 660]] },
+  // Hospedada ahora mismo: el estado sale de las fechas contra business_today().
+  { unidad: 'prueba-suite-atardecer',    in: '2026-08-23', out: '2026-08-27', huesped: 'Marisol Guédez',   doc: 'V-22889900', tel: '+584241115566', pagos: [['zelle', 820]] },
 
   // Pendientes con el comprobante reportado y sin verificar: la bandeja de Pagos.
   {
-    unidad: 'prueba-suite-mar', in: '2026-09-03', out: '2026-09-07',
+    unidad: 'prueba-cabana-mangle', in: '2026-08-28', out: '2026-08-31',
     huesped: 'Rosa Delgado', doc: 'V-16334455', tel: '+584122227733', estado: 'pending',
-    pagos: [{ metodo: 'pago_movil', usd: 144, estado: 'verifying' }],
+    pagos: [{ metodo: 'pago_movil', usd: 112.5, estado: 'verifying' }],
   },
   {
-    unidad: 'prueba-bungalow-palmera', in: '2026-09-06', out: '2026-09-09',
+    unidad: 'prueba-bungalow-coral', in: '2026-08-29', out: '2026-08-31',
     huesped: 'Iván Márquez', doc: 'V-20778899', tel: '+584241114477', estado: 'pending',
-    pagos: [{ metodo: 'zelle', usd: 162, estado: 'verifying' }],
-  },
-  {
-    unidad: 'prueba-habitacion-coral', in: '2026-09-08', out: '2026-09-12',
-    huesped: 'Beatriz Fonseca', doc: 'V-18112233', tel: '+584125553399', estado: 'pending',
-    pagos: [{ metodo: 'binance', usd: 90, estado: 'verifying' }],
-  },
-  {
-    unidad: 'jardin', in: '2026-09-11', out: '2026-09-14',
-    huesped: 'Kevin Osorio', doc: 'V-25334455', tel: '+584161116622', estado: 'pending',
-    // Reportó una referencia que no aparece en la cuenta.
-    pagos: [
-      { metodo: 'pago_movil', usd: 180, estado: 'rejected', motivo: 'La referencia no aparece en el estado de cuenta.' },
-      { metodo: 'pago_movil', usd: 180, estado: 'verifying' },
-    ],
+    pagos: [{ metodo: 'zelle', usd: 93, estado: 'verifying' }],
   },
 ]
 
 const mesDe = (fecha) => fecha.slice(0, 7)
-const iso = (d) => d.toISOString().slice(0, 10)
 
 /**
  * Cuándo se cobró: el anticipo unos días antes de entrar, el saldo al llegar.
  *
  * Limitado al día 1 del mes de la entrada. `revenue_by_month()` agrupa por fecha
- * de cobro, que es lo correcto —el dinero entró cuando entró—, y con la
- * antelación de verdad casi todo el mes se contaba en el anterior.
+ * de cobro, y con la antelación de verdad —semanas— casi todo el mes se contaría
+ * en el anterior.
  */
 const cobradoEl = (entrada, i) => {
   const d = new Date(`${entrada}T12:00:00Z`)
   if (i === 0) d.setUTCDate(Math.max(d.getUTCDate() - 5, 1))
   return d.toISOString()
-}
-const masDias = (d, n) => {
-  const c = new Date(d)
-  c.setUTCDate(c.getUTCDate() + n)
-  return c
-}
-
-/**
- * Genera el histórico: los meses anteriores a la ventana escrita a mano.
- *
- * Recorre **cada unidad de principio a fin del periodo**, no mes a mes. Avanzar
- * en el tiempo dentro de una unidad garantiza por construcción que sus estadías
- * no se solapen, que es lo que el `EXCLUDE` de `unit_holds` rechazaría, y deja
- * que una estadía cruce de mes sin caer en el 31 de septiembre.
- *
- * El hueco entre una salida y la siguiente entrada sale de la demanda del mes:
- * en diciembre casi ninguno, en mayo hasta cinco días de habitación vacía. Sin
- * eso todos los meses rinden igual y la gráfica es una meseta.
- *
- * Todas salen cobradas salvo una de cada doce, que se cancela con devolución, y
- * una de cada quince, que se queda a medio pagar. Sin esos casos el histórico
- * queda demasiado limpio para servir de prueba.
- */
-function generarHistorico(slugs, desde, hasta, ocupadas) {
-  const r = aleatorio(20260825)
-  const estadias = []
-
-  for (const slug of slugs) {
-    // Lo que ya ocupa esa unidad según la lista escrita a mano, ordenado. Solo
-    // las retenciones vivas: una cancelada no reserva nada.
-    const tomadas = (ocupadas.get(slug) ?? []).sort((a, b) => a.in.localeCompare(b.in))
-
-    let cursor = masDias(desde, Math.floor(r() * 4))
-
-    while (cursor < hasta) {
-      const noches = 2 + Math.floor(r() * 4)
-      let salida = masDias(cursor, noches)
-      if (salida > hasta) break
-
-      /*
-        Si la estadía propuesta pisa una de las escritas a mano, se salta al
-        final de esa y se vuelve a intentar.
-
-        Hace falta desde que el generador cubre también julio y agosto. Antes
-        paraba antes de esos meses, y entonces quedaban con una cuarta parte de
-        las estadías del resto: la gráfica enseñaba un desplome en plena
-        temporada alta, que es lo contrario de lo que pasa.
-      */
-      const choque = tomadas.find((t) => iso(cursor) < t.out && t.in < iso(salida))
-      if (choque) {
-        cursor = masDias(new Date(`${choque.out}T00:00:00Z`), Math.floor(r() * 2))
-        continue
-      }
-
-      const nombre = `${NOMBRES[Math.floor(r() * NOMBRES.length)]} ${
-        APELLIDOS[Math.floor(r() * APELLIDOS.length)]}`
-
-      const suerte = r()
-      const cancelada = suerte < 1 / 12
-      const aMedias = !cancelada && suerte < 1 / 12 + 1 / 15
-
-      estadias.push({
-        unidad: slug,
-        in: iso(cursor),
-        out: iso(salida),
-        huesped: nombre,
-        doc: `V-${10_000_000 + Math.floor(r() * 19_000_000)}`,
-        tel: `+58${["412", "414", "424", "416"][Math.floor(r() * 4)]}${
-          String(1_000_000 + Math.floor(r() * 8_999_999))}`,
-        estado: cancelada ? "cancelled" : undefined,
-        fraccion: aMedias ? 0.3 : 1,
-        canal: canalPesado(r),
-        reembolsa: cancelada ? (r() < 0.5 ? 1 : 0.5) : 0,
-      })
-
-      const hueco = Math.round((1 - DEMANDA[salida.getUTCMonth() + 1]) * 7)
-      cursor = masDias(salida, Math.floor(r() * (hueco + 1)))
-    }
-  }
-
-  return estadias
 }
 
 /** Normaliza las dos formas de escribir un pago. */
@@ -371,6 +177,7 @@ try {
   const faltan = ESTADIAS.filter((e) => !porSlug.has(e.unidad)).map((e) => e.unidad)
   if (faltan.length) {
     console.error(`no existen estas unidades: ${[...new Set(faltan)].join(', ')}`)
+    console.error('¿falta correr scripts/seed-units.mjs?')
     process.exit(1)
   }
 
@@ -383,42 +190,7 @@ try {
   }
 
   /*
-    El histórico va delante de lo escrito a mano.
-
-    Las estadías generadas ocupan los diez meses anteriores; las escritas a mano
-    cubren julio en adelante, que es donde viven los casos que hay que poder
-    mirar uno a uno —la bandeja de verificación, el no-show, el rechazado—. No
-    se pisan porque no comparten meses.
-  */
-  const inicioMes = new Date(`${hoy.slice(0, 7)}-01T00:00:00Z`)
-  const desde = new Date(
-    Date.UTC(inicioMes.getUTCFullYear(), inicioMes.getUTCMonth() - MESES_HISTORICO - 1, 1),
-  )
-  // Hasta hoy. El generador cubre también el mes en curso y el anterior, y
-  // esquiva las estadías escritas a mano en vez de cederles el mes entero.
-  const hasta = new Date(`${hoy}T00:00:00Z`)
-
-  // Lo que la lista a mano ya ocupa, por unidad. Solo las retenciones vivas:
-  // una cancelada, una expirada o un no-show no reservan nada.
-  const ocupadas = new Map()
-  for (const e of ESTADIAS) {
-    if (['cancelled', 'expired', 'no_show'].includes(e.estado)) continue
-    if (!ocupadas.has(e.unidad)) ocupadas.set(e.unidad, [])
-    ocupadas.get(e.unidad).push({ in: e.in, out: e.out })
-  }
-
-  const todas = [
-    ...generarHistorico([...porSlug.keys()], desde, hasta, ocupadas),
-    ...ESTADIAS,
-  ]
-
-  /*
     Se arma todo en memoria y se escribe en tres insertos.
-
-    Antes iba fila a fila: tres consultas por reserva, en serie, contra un
-    Supabase remoto. Con cinco unidades eran cuatro minutos; con veinte, más de
-    quince. Ahora son tres viajes en total, y da igual si son cuatrocientas
-    reservas o dos mil.
 
     Los identificadores se generan aquí y no se leen de un `returning`: hacen
     falta antes de insertar, porque el pago necesita el `booking_id` y la reserva
@@ -430,8 +202,7 @@ try {
   const reservas = {
     id: [], hold: [], unidad: [], estado: [], entrada: [], salida: [],
     nombre: [], correo: [], telefono: [], documento: [],
-    subtotal: [], tasa: [], creada: [], expira: [], cancelada: [],
-    motivo: [], reembolso: [],
+    subtotal: [], tasa: [], creada: [], expira: [], cancelada: [], motivo: [],
   }
   const cobros = {
     reserva: [], clase: [], metodo: [], estado: [], moneda: [],
@@ -439,35 +210,21 @@ try {
     pagado: [], revisado: [], pagador: [], documento: [], banco: [], rechazo: [],
   }
 
-  for (const [n, e] of todas.entries()) {
+  for (const [n, e] of ESTADIAS.entries()) {
     const unidad = porSlug.get(e.unidad)
     const noches = (new Date(e.out) - new Date(e.in)) / 86_400_000
     const subtotal = Number(unidad.base_price_usd) * noches
     const tasa = TASA[mesDe(e.in)]
 
-    /*
-      Las escritas a mano traen sus pagos exactos; las generadas traen la
-      fracción cobrada y el canal, y el importe sale del precio de la unidad.
-
-      Se resuelve aquí y no en el generador porque allí no se conoce el precio:
-      el generador decide el calendario, la base decide cuánto vale la noche.
-    */
-    const pagos = e.pagos ?? [[e.canal, Math.round(subtotal * e.fraccion * 100) / 100]]
-    const devuelto =
-      e.devuelto ??
-      (e.reembolsa > 0
-        ? [e.canal, Math.round(subtotal * e.fraccion * e.reembolsa * 100) / 100]
-        : null)
-
     // El estado sale de las fechas salvo que se fuerce: así el seed no envejece
-    // mal y «hospedado ahora mismo» sigue siéndolo mañana.
+    // mal y «hospedada ahora mismo» sigue siéndolo mañana.
     const estado =
       e.estado ??
       (e.out <= hoy ? 'completed' : e.in <= hoy ? 'checked_in' : 'confirmed')
 
-    // La retención sigue activa mientras la reserva viva. Una cancelada,
-    // expirada o no-show la libera; el EXCLUDE lleva `where (is_active)`, así
-    // que esas pueden solaparse con una estadía viva sin chocar.
+    // La retención sigue activa mientras la reserva viva. Una cancelada la
+    // libera; el EXCLUDE lleva `where (is_active)`, así que puede solaparse con
+    // una estadía viva sin chocar.
     const viva = ['completed', 'checked_in', 'confirmed', 'pending'].includes(estado)
 
     const holdId = randomUUID()
@@ -493,17 +250,10 @@ try {
     reservas.tasa.push(tasa)
     reservas.creada.push(`${e.in}T09:00:00Z`)
     reservas.expira.push(estado === 'pending' ? `${hoy}T23:00:00Z` : null)
-    reservas.cancelada.push(
-      estado === 'cancelled' || estado === 'no_show' ? `${e.in}T10:00:00Z` : null,
-    )
-    reservas.motivo.push(
-      estado === 'cancelled' ? 'Cancelada por el huésped'
-        : estado === 'no_show' ? 'No se presentó' : null,
-    )
-    // El no-show no devuelve nada, y eso se escribe en la fila.
-    reservas.reembolso.push(estado === 'no_show' ? 0 : null)
+    reservas.cancelada.push(estado === 'cancelled' ? `${e.in}T10:00:00Z` : null)
+    reservas.motivo.push(estado === 'cancelled' ? 'Cancelada por el huésped' : null)
 
-    for (const [i, crudo] of pagos.entries()) {
+    for (const [i, crudo] of e.pagos.entries()) {
       const pago = comoPago(crudo)
       const bolivares = EN_BOLIVARES.has(pago.metodo)
 
@@ -527,11 +277,11 @@ try {
       cobros.pagador.push(e.huesped)
       cobros.documento.push(e.doc)
       cobros.banco.push(bolivares ? BANCOS[(n + i) % BANCOS.length] : null)
-      cobros.rechazo.push(pago.motivo ?? null)
+      cobros.rechazo.push(null)
     }
 
-    if (devuelto) {
-      const [metodo, importe] = devuelto
+    if (e.devuelto) {
+      const [metodo, importe] = e.devuelto
 
       cobros.reserva.push(reservaId)
       cobros.clase.push('refund')
@@ -567,31 +317,28 @@ try {
        id, hold_id, unit_id, status, check_in, check_out, guests,
        guest_name, guest_email, guest_phone, guest_document,
        subtotal_usd, total_usd, rate_snapshot, rate_date, total_ves,
-       deposit_ratio, created_at, expires_at, cancelled_at, cancel_reason,
-       refund_due_usd
+       deposit_ratio, created_at, expires_at, cancelled_at, cancel_reason
      )
      select
        id, hold, unidad, estado::booking_status, entrada, salida, 2,
        nombre, correo, telefono, documento,
        subtotal, subtotal, tasa, entrada, round(subtotal * tasa, 2),
-       0.3, creada, expira, cancelada, motivo,
-       reembolso
+       0.3, creada, expira, cancelada, motivo
      from unnest(
        $1::uuid[], $2::uuid[], $3::uuid[], $4::text[], $5::date[], $6::date[],
        $7::text[], $8::text[], $9::text[], $10::text[],
        $11::numeric[], $12::numeric[], $13::timestamptz[], $14::timestamptz[],
-       $15::timestamptz[], $16::text[], $17::numeric[]
+       $15::timestamptz[], $16::text[]
      ) as t(
        id, hold, unidad, estado, entrada, salida,
        nombre, correo, telefono, documento,
-       subtotal, tasa, creada, expira, cancelada, motivo, reembolso
+       subtotal, tasa, creada, expira, cancelada, motivo
      )`,
     [
       reservas.id, reservas.hold, reservas.unidad, reservas.estado,
       reservas.entrada, reservas.salida, reservas.nombre, reservas.correo,
       reservas.telefono, reservas.documento, reservas.subtotal, reservas.tasa,
       reservas.creada, reservas.expira, reservas.cancelada, reservas.motivo,
-      reservas.reembolso,
     ],
   )
 
@@ -624,10 +371,7 @@ try {
 
   await client.query('commit')
 
-  console.log(
-    `sembradas ${todas.length} reservas de prueba ` +
-    `(${todas.length - ESTADIAS.length} generadas + ${ESTADIAS.length} escritas a mano)\n`,
-  )
+  console.log(`sembradas ${ESTADIAS.length} reservas de prueba\n`)
 
   console.log('reservas por estado')
   console.table((await client.query(
@@ -644,12 +388,10 @@ try {
 
   console.log('ingresos')
   console.table((await client.query(
-    `select month::text, charged_usd, refunded_usd, net_usd from revenue_by_month(4)`,
+    `select month::text as mes, charged_usd as cobrado, refunded_usd as devuelto,
+            net_usd as ingreso
+       from revenue_by_month(4)`,
   )).rows)
-
-  console.log('ocupación agosto:', (await client.query(
-    `select occupancy_for_month('2026-08-01') o`,
-  )).rows[0].o)
 } catch (e) {
   await client.query('rollback').catch(() => {})
   console.error(e.message)
