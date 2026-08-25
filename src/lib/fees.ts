@@ -20,6 +20,15 @@ export type Fee = {
   amount: number
   description: string | null
   refundable: boolean
+  /**
+   * Tributo que el negocio recauda y entera: IVA, tasa turística.
+   *
+   * Se le cobra al huésped, pero no es ingreso. Independiente de `refundable`:
+   * un impuesto **sí** vuelve si se devuelve la estadía, porque el hecho
+   * imponible se deshace. `refundable` dice si el dinero vuelve al huésped;
+   * esto dice si el dinero es del negocio.
+   */
+  is_tax: boolean
   is_active: boolean
   sort_order: number
 }
@@ -31,8 +40,15 @@ export type AppliedFee = {
   rate: number
   amount_usd: number
   refundable: boolean
+  is_tax: boolean
   scope: 'general' | 'unit'
   base_usd?: number
+}
+
+/** Lo que se recauda para el fisco y lo que queda para el negocio. */
+export function splitTaxes(fees: AppliedFee[]) {
+  const tax = fees.reduce((sum, f) => (f.is_tax ? sum + f.amount_usd : sum), 0)
+  return { tax, taxed: fees.some((f) => f.is_tax) }
 }
 
 export const FEE_KINDS: { value: FeeKind; label: string; hint: string }[] = [
@@ -73,6 +89,10 @@ export function parseAppliedFees(raw: unknown): AppliedFee[] {
       rate: Number(f.rate) || 0,
       amount_usd: Number(f.amount_usd) || 0,
       refundable: Boolean(f.refundable),
+      // Los desgloses anteriores a la migración 0035 no llevan la marca. Sin
+      // ella el cargo cuenta como ingreso, que es exactamente lo que se asumía
+      // cuando se congelaron.
+      is_tax: Boolean(f.is_tax),
       scope: f.scope === 'general' ? 'general' : 'unit',
       base_usd: f.base_usd === undefined ? undefined : Number(f.base_usd),
     }))

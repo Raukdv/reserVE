@@ -5,7 +5,7 @@ import { BUSINESS_TZ } from '@/lib/timezone'
 import { publicEnv } from '@/lib/env'
 import { usd, ves, dateLabel } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
-import { parseAppliedFees } from '@/lib/fees'
+import { parseAppliedFees, splitTaxes } from '@/lib/fees'
 import { BookingActions, type RefundPreview } from '@/components/booking-actions'
 import { CollectionSummary, collectionState } from '@/components/collection-summary'
 import { ArrowLeft, Eye, MessageCircle } from 'lucide-react'
@@ -216,6 +216,20 @@ export default async function BookingDetail({
                   value={usd(fee.amount_usd)}
                 />
               ))}
+              {/*
+                Al huésped se le cobró el total; esta línea es para el operador.
+                Sin ella, el desglose enseña el IVA como un cargo más y la cifra
+                que queda en la cabeza es la de arriba, impuesto incluido.
+              */}
+              {(() => {
+                const { tax, taxed } = splitTaxes(parseAppliedFees(booking.fees_breakdown))
+                return taxed ? (
+                  <Row
+                    label="De lo anterior, impuestos que enteras"
+                    value={`−${usd(tax)}`}
+                  />
+                ) : null
+              })()}
               {booking.discount_usd > 0 && (
                 <Row label="Descuento" value={`−${usd(booking.discount_usd)}`} />
               )}

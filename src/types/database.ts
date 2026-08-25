@@ -641,6 +641,8 @@ export interface Database {
           amount: number
           description: string | null
           refundable: boolean
+          /** Tributo que se recauda y se entera: se cobra, pero no es ingreso. */
+          is_tax: boolean
           is_active: boolean
           sort_order: number
           created_at: string
@@ -653,6 +655,7 @@ export interface Database {
           amount: number
           description?: string | null
           refundable?: boolean
+          is_tax?: boolean
           is_active?: boolean
           sort_order?: number
           created_at?: string

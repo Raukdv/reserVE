@@ -335,9 +335,38 @@ un día, que puede caer fuera de los 45 pintados.
 
 ---
 
-## Separar los impuestos de los ingresos
+## ~~Separar los impuestos de los ingresos~~ — hecho en la `0035`
 
-**Bloquea la sección de ganancias.** Ver la observación 4 de `DISENO.md`.
+**La sección de ganancias ya no está bloqueada.** Ver la observación 4 de
+`DISENO.md`.
+
+`fees.is_tax` marca los cargos que el negocio recauda y entera. `compute_fees()`
+los suma aparte y `quote_stay()` devuelve tres cifras donde antes había una:
+
+| Campo | Qué es |
+|---|---|
+| `total_usd` | Lo que paga el huésped. **No cambió.** |
+| `tax_usd` | Lo que se entera al fisco |
+| `net_usd` | El ingreso real del negocio |
+
+La marca va **dentro del desglose congelado** en `bookings.fees_breakdown`, no
+solo en la tabla `fees`. Mirar la tabla seis meses después diría cómo está
+configurado el cargo hoy, no cómo se cobró entonces.
+
+No hubo que migrar historia: al aplicarlo no existía ningún cargo creado ni
+ninguna reserva con desglose. Los desgloses sin la marca cuentan como ingreso,
+que es lo que se asumía cuando se congelaron.
+
+Se conserva abajo el razonamiento, que sigue siendo el porqué.
+
+### Lo que queda para la sección de ganancias
+
+La pregunta 3 —cómo se muestra— sigue abierta y hay que decidirla antes de
+dibujar. La recomendación de entonces se mantiene: la barra enseña lo neto y al
+lado va «impuestos recaudados este mes» como cifra aparte. Son dos preguntas
+distintas y mezclarlas en una forma hace que ninguna se responda bien.
+
+### El razonamiento original
 
 El IVA no es del negocio. Se cobra al huésped, se recauda por cuenta del fisco y
 se entera — igual que el IGTF. Contarlo como ingreso infla la cifra en la

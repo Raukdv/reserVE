@@ -80,6 +80,11 @@ function FeeRow({ fee, unitId }: { fee: Fee; unitId?: string }) {
                 Reembolsable
               </span>
             )}
+            {fee.is_tax && (
+              <span className="rounded-full bg-ink/10 px-2 py-0.5 text-[11px] text-ink/70">
+                Impuesto
+              </span>
+            )}
           </p>
           {fee.description && (
             <p className="mt-1 text-descripcion text-ink/70">{fee.description}</p>
@@ -241,7 +246,27 @@ function FeeForm({
             Se devuelve en cancelaciones parciales
           </label>
         )}
+
+        {/*
+          Va en todas las formas de cargo, no solo en el porcentaje: una tasa
+          turística por noche también es un tributo que se entera.
+        */}
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            name="isTax"
+            type="checkbox"
+            defaultChecked={fee?.is_tax ?? false}
+            className="h-4 w-4"
+          />
+          Es un impuesto
+        </label>
       </div>
+
+      <p className="text-xs text-ink/60">
+        Marca «es un impuesto» solo si lo cobras por cuenta del fisco y lo
+        entera el negocio —IVA, tasa turística—. Al huésped se le cobra igual,
+        pero deja de contar como ingreso tuyo.
+      </p>
 
       <div className="flex flex-wrap items-center gap-3">
         <button

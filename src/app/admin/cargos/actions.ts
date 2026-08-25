@@ -23,6 +23,7 @@ const feeSchema = z
     amount: z.coerce.number().min(0, 'No puede ser negativo'),
     description: z.string().trim().max(200).or(z.literal('')),
     refundable: z.coerce.boolean(),
+    isTax: z.coerce.boolean(),
     isActive: z.coerce.boolean(),
     sortOrder: z.coerce.number().int().min(0).max(99),
   })
@@ -42,6 +43,7 @@ export async function saveFee(_prev: FeeState, formData: FormData): Promise<FeeS
     amount: formData.get('amount'),
     description: formData.get('description') ?? '',
     refundable: formData.get('refundable') === 'on',
+    isTax: formData.get('isTax') === 'on',
     isActive: formData.get('isActive') === 'on',
     sortOrder: formData.get('sortOrder') || 0,
   })
@@ -60,6 +62,10 @@ export async function saveFee(_prev: FeeState, formData: FormData): Promise<FeeS
     // Un porcentaje sigue a su base y se reembolsa en proporción; la bandera no
     // le aplica, así que se guarda en falso para no sugerir lo contrario.
     refundable: d.kind === 'percent' ? false : d.refundable,
+    // Un tributo se recauda y se entera: se cobra al huésped pero no es
+    // ingreso. Nada que ver con refundable — el IVA vuelve si se devuelve la
+    // estadía, y aun así nunca fue dinero del negocio.
+    is_tax: d.isTax,
     is_active: d.isActive,
     sort_order: d.sortOrder,
   }
