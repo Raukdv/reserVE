@@ -17,11 +17,14 @@ export function FeesEditor({
   fees,
   unitId,
   emptyHint,
+  vatEnabled = false,
 }: {
   fees: Fee[]
   /** Sin valor, los cargos son generales. */
   unitId?: string
   emptyHint: string
+  /** Si los cargos marcados como impuesto se están aplicando. Ver ajustes. */
+  vatEnabled?: boolean
 }) {
   const [adding, setAdding] = useState(false)
 
@@ -30,7 +33,7 @@ export function FeesEditor({
       {fees.length > 0 ? (
         <ul className="space-y-3">
           {fees.map((fee) => (
-            <FeeRow key={fee.id} fee={fee} unitId={unitId} />
+            <FeeRow key={fee.id} fee={fee} unitId={unitId} vatEnabled={vatEnabled} />
           ))}
         </ul>
       ) : (
@@ -57,7 +60,15 @@ export function FeesEditor({
   )
 }
 
-function FeeRow({ fee, unitId }: { fee: Fee; unitId?: string }) {
+function FeeRow({
+  fee,
+  unitId,
+  vatEnabled,
+}: {
+  fee: Fee
+  unitId?: string
+  vatEnabled: boolean
+}) {
   const [editing, setEditing] = useState(false)
   const [state, remove, removing] = useActionState<FeeState, FormData>(deleteFee, {})
 
@@ -86,6 +97,16 @@ function FeeRow({ fee, unitId }: { fee: Fee; unitId?: string }) {
               </span>
             )}
           </p>
+          {/*
+            Marcado como impuesto pero sin aplicar. Sin este aviso el cargo se ve
+            configurado y activo, y el operador puede pasarse semanas creyendo
+            que lo está cobrando.
+          */}
+          {fee.is_tax && !vatEnabled && (
+            <p className="mt-1 text-xs text-amber-800">
+              No se está aplicando: el IVA está apagado en Ajustes.
+            </p>
+          )}
           {fee.description && (
             <p className="mt-1 text-descripcion text-ink/70">{fee.description}</p>
           )}

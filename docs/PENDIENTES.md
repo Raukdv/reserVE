@@ -47,7 +47,10 @@ informe de ingresos leen de las mismas cifras.
 
 ## 🗣 Consulta a un contador — ¿la penalización de cancelación causa IVA?
 
-**Es la única consulta abierta que puede cambiar cuánto dinero se devuelve.**
+**Sin urgencia desde la `0037`: el IVA está apagado por defecto.** Mientras
+`app_settings.vat_enabled` siga en falso, el sistema no aplica impuestos y esta
+pregunta no afecta a ningún cobro. Hay que responderla **antes de encender el
+interruptor**, no antes.
 
 ### La pregunta
 
@@ -117,19 +120,36 @@ facturas. Ver el pendiente de abajo.
 
 ---
 
-## Facturación fiscal — sin ella el IVA devuelto sale del bolsillo
+## Facturación fiscal — decidido: no la hace este sistema
 
-Hoy se devuelve el IVA al huésped y **no se recupera del SENIAT**, porque
-recuperarlo exige una nota de crédito que anule la factura original, y aquí no
-hay facturas: ni numeración correlativa, ni documento fiscal, ni libro de ventas.
+**Resuelto en la `0037`, no construyendo sino apagando.**
 
-En una cancelación con devolución total de la reserva del ejemplo son **41,60 que
-salen y no vuelven**. Cada vez.
+El problema era que se aplicaba IVA sin poder facturar. Recuperar del SENIAT el
+impuesto que se devuelve a un huésped exige una nota de crédito que anule la
+factura original, y aquí no hay facturas: ni numeración correlativa, ni documento
+fiscal, ni libro de ventas. Cada cancelación total de la reserva de ejemplo eran
+**41,60 que salían y no volvían**.
 
-No es un fallo de código. Necesita facturación autorizada por el SENIAT
-—imprenta autorizada, máquina fiscal o facturación digital—, con su correlativo y
-su libro de ventas. Es un proyecto en sí mismo y probablemente el siguiente paso
-serio cuando el negocio opere en firme.
+La decisión es que **la facturación fiscal no la hace esta aplicación**. Saldría
+de otro sistema, y esta como mucho referenciaría lo que aquel emita. Así que el
+IVA queda detrás de un interruptor en Ajustes, apagado por defecto: el operador
+decide cómo compone el total de la reserva, y el sistema no carga con una
+responsabilidad que no puede cumplir.
+
+### Lo que queda anotado para el día que se retome
+
+Si alguna vez se integra con un sistema de facturación, hace falta:
+
+- Una referencia al documento fiscal en la reserva y en cada movimiento — número
+  y serie del emisor, no un documento propio.
+- La misma referencia para las notas de crédito, que son lo que permite deshacer
+  el IVA de una devolución.
+- Responder antes la consulta de arriba, porque decide qué se anula: el impuesto
+  íntegro o solo la parte proporcional.
+
+`payments.tax_usd` ya anota cuánto de cada devolución fue impuesto, en proporción
+al total de la reserva. Hoy siempre da cero porque no hay impuestos que aplicar,
+pero el mecanismo está y no habrá que reconstruirlo.
 
 **Lo que sí se hizo mientras tanto:** `payments.tax_usd` anota cuánto de cada
 devolución fue impuesto, en proporción al total de la reserva. Es informativo y

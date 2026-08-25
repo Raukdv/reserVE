@@ -24,7 +24,10 @@ export default async function EditUnitPage({ params }: { params: Promise<{ id: s
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: unit }, { data: amenities }, { data: assigned }, { data: media }, { data: fees }] =
+  const [
+    { data: unit }, { data: amenities }, { data: assigned }, { data: media },
+    { data: fees }, { data: settings },
+  ] =
     await Promise.all([
       supabase.from('units').select('*').eq('id', id).maybeSingle(),
       supabase.from('amenities').select('*').order('category').order('sort_order'),
@@ -36,6 +39,7 @@ export default async function EditUnitPage({ params }: { params: Promise<{ id: s
         .order('sort_order')
         .limit(MAX_PHOTOS_PER_UNIT),
       supabase.from('fees').select('*').eq('unit_id', id).order('sort_order').order('name'),
+      supabase.from('app_settings').select('vat_enabled').single(),
     ])
 
   if (!unit) notFound()
@@ -92,6 +96,7 @@ export default async function EditUnitPage({ params }: { params: Promise<{ id: s
             <FeesEditor
               fees={(fees ?? []) as Fee[]}
               unitId={unit.id}
+              vatEnabled={settings?.vat_enabled ?? false}
               emptyHint="Sin cargos propios. Solo se cobran las noches y los cargos generales."
             />
           </div>

@@ -9,9 +9,10 @@ export const metadata = { title: 'Cargos' }
 export default async function FeesPage() {
   const supabase = await createClient()
 
-  const [{ data: fees }, { data: units }] = await Promise.all([
+  const [{ data: fees }, { data: units }, { data: settings }] = await Promise.all([
     supabase.from('fees').select('*').order('sort_order').order('name'),
     supabase.from('units').select('id, name').order('sort_order'),
+    supabase.from('app_settings').select('vat_enabled').single(),
   ])
 
   const all = (fees ?? []) as Fee[]
@@ -34,6 +35,7 @@ export default async function FeesPage() {
         <div className="mt-4">
           <FeesEditor
             fees={general}
+            vatEnabled={settings?.vat_enabled ?? false}
             emptyHint="Sin cargos generales. El precio es solo el de las noches más lo que tenga cada unidad."
           />
         </div>

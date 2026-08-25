@@ -247,9 +247,12 @@ siguientes son `balance`.
 
 ## Las devoluciones y el IVA
 
-Hay un hueco que conviene conocer antes de leer el resto: **devolver el IVA al
-huésped y recuperarlo del fisco son dos operaciones distintas, y solo hacemos la
-primera.**
+**Hoy no hay IVA que devolver: está apagado.** `app_settings.vat_enabled` viene
+en falso y el sistema no aplica los cargos marcados como impuesto. Lo que sigue
+describe lo que ocurre si se enciende, y por qué no conviene encenderlo todavía.
+
+La razón corta: **devolver el IVA al huésped y recuperarlo del fisco son dos
+operaciones distintas, y solo sabemos hacer la primera.**
 
 Cuando una reserva se cancela con derecho a devolución, el impuesto vuelve
 —`cancellation_quote()` lo trata como porcentaje que sigue a su base, así que si

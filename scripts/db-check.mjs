@@ -131,6 +131,20 @@ try {
        values ('Prueba impuesto', 'percent', 16, true, 99)`,
     )
 
+    // Con el IVA apagado —el valor por defecto desde la 0037— un cargo marcado
+    // como impuesto no debe aplicarse. Es la primera mitad de la prueba.
+    await client.query('update app_settings set vat_enabled = false')
+    const { rows: [off] } = await client.query(
+      `select quote_stay($1, '2030-06-01', '2030-06-04', 2) as q`, [unit.id],
+    )
+    check(
+      'con el IVA apagado el impuesto no se cobra',
+      Number(off.q.tax_usd) === 0 && !off.q.fees.some((f) => f.is_tax),
+      `total ${off.q.total_usd}, impuesto ${off.q.tax_usd}`,
+    )
+
+    await client.query('update app_settings set vat_enabled = true')
+
     const { rows: [t] } = await client.query(
       `select quote_stay($1, '2030-06-01', '2030-06-04', 2) as q`, [unit.id],
     )

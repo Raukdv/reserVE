@@ -86,6 +86,7 @@ const settingsSchema = z.object({
       return [...tiers.data].sort((a, b) => b.hours_before - a.hours_before)
     }),
   igtfEnabled: z.coerce.boolean(),
+  vatEnabled: z.coerce.boolean(),
   igtfRate: z.coerce.number().min(0).max(20),
 })
 
@@ -110,6 +111,7 @@ export async function updateSettings(
     checkOutTime: formData.get('checkOutTime'),
     cancellationTiers: formData.get('cancellationTiers') ?? '[]',
     igtfEnabled: formData.get('igtfEnabled') === 'on',
+    vatEnabled: formData.get('vatEnabled') === 'on',
     igtfRate: formData.get('igtfRate'),
   })
 
@@ -137,6 +139,7 @@ export async function updateSettings(
       check_in_time: d.checkInTime,
       check_out_time: d.checkOutTime,
       igtf_enabled: d.igtfEnabled,
+      vat_enabled: d.vatEnabled,
       igtf_rate: d.igtfRate / 100,
       updated_at: new Date().toISOString(),
     })

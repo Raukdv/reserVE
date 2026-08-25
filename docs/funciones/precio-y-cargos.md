@@ -102,7 +102,49 @@ bandera no le aplica porque la respuesta ya está determinada.
 
 ---
 
-## Los impuestos no son ingreso
+## Los impuestos están apagados, y es lo correcto
+
+**Por defecto el sistema no aplica IVA.** `app_settings.vat_enabled` viene en
+falso, y mientras lo esté, los cargos marcados como impuesto no se calculan, no
+se cobran y no aparecen en el desglose.
+
+No es prudencia excesiva. Cobrar IVA no es calcular un porcentaje: obliga a
+emitir factura fiscal con correlativo, llevar libro de ventas y poder emitir
+notas de crédito cuando se devuelve dinero. **Nada de eso existe aquí, y no está
+previsto que exista** — la facturación saldría de otro sistema y esta aplicación,
+como mucho, referenciaría lo que aquel emita.
+
+Con el IVA aplicándose de frente y sin ese respaldo, el sistema asumía una
+responsabilidad que no podía cumplir:
+
+- Devolvía el impuesto al huésped sin poder recuperarlo del SENIAT, porque
+  recuperarlo exige la nota de crédito que no se puede emitir. En una cancelación
+  total de una reserva de 301,60 eran **41,60 de pérdida real**.
+- Retenía impuesto sobre penalizaciones y no-shows, que según todo lo encontrado
+  son indemnizaciones no sujetas. Ver `PENDIENTES.md`.
+
+Apagado, nada de eso ocurre. **El operador decide cómo compone el total**, que es
+cosa suya y de su contabilidad; el sistema cobra lo que se le diga y no pretende
+saber de impuestos.
+
+```
+vat_enabled=false  → Limpieza              total 260.00  tax 0     net 260
+vat_enabled=true   → Limpieza, IVA         total 301.60  tax 41.60 net 260
+```
+
+El filtro se aplica en las dos pasadas de `compute_fees()`, no al final. Un
+impuesto excluido tampoco debe engordar la base de los porcentajes.
+
+**Lo ya cobrado no cambia.** El desglose vive congelado en la reserva: una
+cobrada con IVA lo conserva y se devuelve como siempre. El interruptor gobierna
+lo que se cotiza de aquí en adelante.
+
+La marca `is_tax` se conserva aunque esté apagado, así que encenderlo no obliga a
+reconfigurar nada. El editor de cargos avisa cuando un cargo está marcado como
+impuesto y no se está aplicando — sin eso se ve activo y configurado, y el
+operador puede pasarse semanas creyendo que lo cobra.
+
+### Y cuando se encienda
 
 El IVA se cobra al huésped, se recauda por cuenta del fisco y se entera. Contarlo
 como ingreso infla la cifra en la proporción exacta del tipo impositivo: con el

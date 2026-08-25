@@ -57,6 +57,15 @@ export type Quote =
       fees: AppliedFee[]
       fees_usd: number
       total_usd: number
+      /**
+       * Lo que se recauda por cuenta del fisco, y lo que queda para el negocio.
+       *
+       * Cero mientras `app_settings.vat_enabled` esté apagado, que es el valor
+       * por defecto: sin factura fiscal el sistema no aplica impuestos. Ver la
+       * migración `0037`.
+       */
+      tax_usd: number
+      net_usd: number
       rate: number
       /** Fecha valor de la tasa aplicada. El monto en Bs vale mientras coincida. */
       rate_date: string
@@ -696,6 +705,8 @@ export interface Database {
           default_deposit_ratio: number
           pending_ttl_hours: number
           igtf_enabled: boolean
+          /** Si se aplican los cargos marcados como impuesto. Apagado por defecto. */
+          vat_enabled: boolean
           igtf_rate: number
           /** Título de /legal/cancelacion. Vacío usa el genérico. */
           cancellation_title: string | null
@@ -719,6 +730,7 @@ export interface Database {
           default_deposit_ratio?: number
           pending_ttl_hours?: number
           igtf_enabled?: boolean
+          vat_enabled?: boolean
           igtf_rate?: number
           cancellation_title?: string | null
           cancellation_policy?: string | null

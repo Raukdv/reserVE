@@ -290,6 +290,7 @@ function CancellationPolicy({
 export function SettingsForm({ settings }: { settings: Row<'app_settings'> }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(updateSettings, {})
   const [igtf, setIgtf] = useState(settings.igtf_enabled)
+  const [vat, setVat] = useState(settings.vat_enabled)
 
   return (
     <form action={action} className="space-y-8">
@@ -522,6 +523,60 @@ export function SettingsForm({ settings }: { settings: Row<'app_settings'> }) {
             otra.
           </span>
         </label>
+      </section>
+
+      {/*
+        El IVA va aparte del IGTF y apagado por defecto. No es lo mismo: el IGTF
+        lo causa el medio de pago y se proyecta sin tocar el precio; el IVA
+        formaría parte de lo que se cobra, y cobrarlo obliga a facturar.
+      */}
+      <section className="border-t border-ink/10 pt-8">
+        <h2 className="text-base font-semibold">IVA</h2>
+        <p className="mt-1 text-descripcion text-ink/70">
+          Apagado, los cargos que hayas marcado como impuesto en{' '}
+          <strong className="font-medium text-ink">Cargos</strong> no se calculan
+          ni se cobran. Tú decides cómo compones el total de la reserva.
+        </p>
+
+        <div className="mt-3 rounded-xl border border-ink/15 bg-sand p-4 text-sm text-ink/70">
+          <p className="font-medium text-ink">Enciéndelo solo si ya facturas.</p>
+          <p className="mt-1.5">
+            Cobrar IVA no es calcular un porcentaje: obliga a emitir factura
+            fiscal con correlativo, llevar libro de ventas y poder emitir notas
+            de crédito cuando devuelves dinero. Esta aplicación no hace nada de
+            eso, y no está previsto que lo haga.
+          </p>
+          <p className="mt-1.5">
+            Sin factura, el impuesto que devuelvas a un huésped{' '}
+            <strong className="font-medium text-ink">no se recupera del SENIAT</strong>{' '}
+            y sale de tu bolsillo.
+          </p>
+        </div>
+
+        <label className="mt-4 flex items-start gap-3 text-sm">
+          <input
+            name="vatEnabled"
+            type="checkbox"
+            defaultChecked={settings.vat_enabled}
+            onChange={(e) => setVat(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span>
+            Aplicar los cargos marcados como impuesto
+            <span className="mt-0.5 block text-xs text-ink/60">
+              Lo ya cobrado no cambia: cada reserva guarda su desglose tal como se
+              calculó.
+            </span>
+          </span>
+        </label>
+
+        {vat && (
+          <p className="mt-3 text-xs text-amber-800">
+            Con esto encendido el sistema calcula, cobra y devuelve impuestos.
+            Asegúrate de que la factura fiscal salga de donde corresponda y de que
+            los correlativos cuadren con lo que aquí se cobra.
+          </p>
+        )}
       </section>
 
       <section className="border-t border-ink/10 pt-8">
