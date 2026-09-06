@@ -179,28 +179,20 @@ Es una invocación por visita, y el plan Hobby incluye 1.000.000 al mes. Con el
 sitio privado no se nota; con tráfico real, sí. Ver `docs/COSTO-CERO.md`,
 regla 3.3.
 
-### Y con la puerta fuera, el código de reserva queda solo
+### ~~Y con la puerta fuera, el código de reserva queda solo~~ — hecho en la `0039`
 
-Salió al escribir `docs/funciones/acceso-y-roles.md`. El código es la única
-credencial de la página del huésped, y son **ocho caracteres hexadecimales**:
+Era la otra mitad de este pendiente y ya no lo es: el código pasó de ocho
+hexadecimales a **diez de base32 de Crockford**, de 32 a 50 bits. Alfabeto sin
+`I`, `L`, `O` ni `U`, porque el código se dicta por teléfono. Ver
+`docs/funciones/acceso-y-roles.md`.
 
-```sql
-default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8))
-```
+Se hizo por delante del `matcher` a propósito: no depende de abrir al público, no
+rompe nada —los códigos viejos siguen valiendo— y quita una decisión del momento
+del lanzamiento, que es cuando peor se decide.
 
-32 bits, unos 4.300 millones de combinaciones. Aleatorio de verdad —bytes
-criptográficos, no correlativo— así que nadie adivina un código concreto. Pero
-recorrer el espacio con un script es otra cosa, y hoy `/reserva/[code]` no limita
-intentos.
-
-Mientras la puerta esté puesta no hay exposición. Al retirarla, una de dos:
-
-- **Alargar el código** a 12 caracteres (48 bits). Cambia solo el `default`, y
-  los códigos viejos siguen valiendo porque la columna es de texto.
-- **Limitar los intentos** en la ruta del huésped.
-
-Lo primero es más barato y no depende de infraestructura. Conviene decidirlo en
-el mismo momento que el `matcher`, porque los dos dependen del mismo evento.
+Queda descartado limitar los intentos en `/reserva/[code]`. Con 50 bits, recorrer
+el espacio deja de ser un ataque plausible, y un limitador exige guardar estado
+por IP, que es infraestructura que el plan gratuito no regala.
 
 ---
 

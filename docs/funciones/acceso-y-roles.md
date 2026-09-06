@@ -160,22 +160,46 @@ La reserva se identifica por su **código**, y la página del huésped es
 `security definer`: se salta la RLS a propósito porque quien la llama es un
 anónimo con un código.
 
-Eso hace del código una credencial, así que se genera al azar y no en serie:
+Eso hace del código una credencial, así que se genera al azar y no en serie: uno
+correlativo convertiría la página en un directorio de las reservas del negocio,
+porque bastaría sumar uno.
 
-```sql
-code text not null unique
-  default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8))
+Son **diez caracteres de base32 de Crockford**, 50 bits, sobre bytes
+criptográficos:
+
+```
+TRWD0MASAJ    YY8X9WJXHW    R439B5YJ2P
 ```
 
-Ocho caracteres hexadecimales sobre bytes criptográficos. Un código correlativo
-convertiría la página en un directorio de las reservas del negocio: bastaría
-sumar uno.
+Eran ocho hexadecimales —32 bits— hasta la migración `0039`, y se cambiaron por
+dos motivos que no son el mismo:
 
-Ocho hex son 32 bits —unos 4.300 millones de combinaciones—, que está bien contra
-alguien que prueba a mano y **no** contra quien enumera en serio. Nadie va a
-adivinar un código concreto; recorrer el espacio con un script es otra cosa. Hoy
-no preocupa —el sitio está tras la puerta y hay una reserva— pero al abrir al
-público conviene o alargarlo o poner un límite de intentos en `/reserva/[code]`.
+- **Enumeración.** 4.300 millones es mucho para adivinar uno concreto y poco para
+  recorrer con un script, y `/reserva/[code]` no limita intentos. Con la puerta
+  de acceso puesta no había exposición; al abrir al público, sí.
+- **Colisiones.** Por la paradoja del cumpleaños, diez mil reservas sobre 2³²
+  daban un 1,2 % de probabilidad de que dos compartieran código. La restricción
+  `unique` lo habría convertido en un error al reservar, delante del huésped. Con
+  50 bits baja a una entre veinte millones.
+
+### El alfabeto se eligió por el teléfono
+
+Doce hexadecimales daban los mismos 48 bits, pero el código **se dicta en voz
+alta**: la reserva se toma por WhatsApp o llamada y el operador se lo canta al
+huésped. Crockford usa `0123456789ABCDEFGHJKMNPQRSTVWXYZ` —sin `I`, `L`, `O` ni
+`U`—, así que no hay confusión entre uno y ele ni entre cero y o. Más entropía en
+menos caracteres, y más fáciles de leer.
+
+La otra mitad de Crockford es que **al leer se perdona lo que se confunde al
+escribir**: `normalizeBookingCode()` mapea `O` a cero, `I` y `L` a uno, y quita
+guiones y espacios. Vive en TypeScript y se aplica solo en la frontera del
+huésped —la ruta y el formulario—, no en las quince funciones de Postgres que
+buscan por código: los caminos del personal reciben el código de un enlace, nunca
+del teclado, y varias de esas funciones mueven dinero.
+
+Los códigos antiguos siguen valiendo. La columna es `text` sin longitud máxima, y
+como `A–F` están dentro del alfabeto de Crockford, un hexadecimal viejo es base32
+válido y la normalización lo deja intacto.
 
 `bookings.guest_id` existe y la política `bookings_own` lo usa, pero es para el
 día que haya cuentas de huésped. Hoy está en nulo y el camino real es el código.

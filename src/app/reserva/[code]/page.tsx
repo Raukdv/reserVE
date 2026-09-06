@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PILL_SHAPE, paymentStatus } from '@/lib/payment-status'
+import { normalizeBookingCode } from '@/lib/booking-code'
 import { BUSINESS_TZ } from '@/lib/timezone'
 import { usd, ves, dateLabel, percent } from '@/lib/format'
 import { METHODS } from '@/lib/payment-methods'
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
-  return { title: `Reserva ${code.toUpperCase()}` }
+  return { title: `Reserva ${normalizeBookingCode(code)}` }
 }
 
 type BookingView = {
@@ -106,7 +107,10 @@ export default async function BookingPage({
   params: Promise<{ code: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { code } = await params
+  // El código llega por la URL, así que puede venir tecleado a mano desde un
+  // mensaje: se normaliza antes de buscarlo.
+  const { code: codeRaw } = await params
+  const code = normalizeBookingCode(codeRaw)
   const sp = await searchParams
   const checkout = Array.isArray(sp.pago) ? sp.pago[0] : sp.pago
 

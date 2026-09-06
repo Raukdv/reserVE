@@ -11,6 +11,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { METHODS, GUEST_METHODS } from '@/lib/payment-methods'
 import { loadBookingEmail, sendPaymentReceived } from '@/lib/email'
 import { documentError } from '@/lib/document'
+import { normalizeBookingCode } from '@/lib/booking-code'
 import type { PaymentMethod } from '@/types/database'
 
 const RECEIPTS_BUCKET = 'receipts'
@@ -193,7 +194,7 @@ export async function startCardCheckout(
   _prev: ReportState,
   formData: FormData,
 ): Promise<ReportState> {
-  const code = String(formData.get('code') ?? '').trim().toUpperCase()
+  const code = normalizeBookingCode(String(formData.get('code') ?? ''))
   if (code.length < 4) return { error: 'Reserva no válida.' }
 
   const stripe = getStripe()

@@ -281,6 +281,36 @@ try {
   )
   check('create_booking() crea la reserva', created.r?.ok === true, created.r?.error ?? '')
 
+  /*
+    El código de reserva es la única credencial de la página del huésped, así que
+    su generación se prueba de verdad, no se da por hecha.
+
+    Se piden mil de golpe. Con menos no se vería el fallo que esto vigila: en una
+    función `language sql`, Postgres evalúa `gen_random_bytes()` una vez para
+    toda la consulta y devuelve el mismo código mil veces. Pasó al escribirla, y
+    como valor por defecto de columna habría colado — hasta el primer `insert` de
+    varias filas.
+  */
+  const { rows: [codigos] } = await client.query(`
+    select
+      count(distinct c)::int as distintos,
+      min(length(c))::int    as corto,
+      count(*) filter (where c ~ '[ILOU]')::int as ambiguos
+    from (select booking_code() as c from generate_series(1, 1000)) s
+  `)
+
+  check(
+    'booking_code() no se repite',
+    codigos.distintos === 1000,
+    `${codigos.distintos} distintos de 1000`,
+  )
+
+  check(
+    'booking_code() son 10 y sin caracteres ambiguos',
+    codigos.corto === 10 && codigos.ambiguos === 0,
+    `longitud ${codigos.corto} · ${codigos.ambiguos} con I, L, O o U`,
+  )
+
   const { rows: [clash] } = await client.query(
     `select create_booking($1,'2031-02-12','2031-02-16',2,'Otro','otro@example.com',null,null,null) as r`,
     [unit.id],
